@@ -41,6 +41,9 @@
 
 /* USER CODE BEGIN Includes */
 
+#include <stdlib.h>
+#include <string.h>
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -56,6 +59,10 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+
+volatile int32_t capture4=0, capture4_prev=0, encoder4=0;
+volatile int32_t capture3=0, capture3_prev=0, encoder3=0;
+volatile int32_t dac1_val=0, dac2_val=0;
 
 /* USER CODE END PV */
 
@@ -75,6 +82,32 @@ static void MX_ADC1_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim->Instance==TIM1) {
+		capture4 = TIM4->CNT;
+		encoder4 += capture4 - capture4_prev;
+		if (labs(capture4-capture4_prev)>32767) {
+			encoder4 += (capture4<capture4_prev ? 65535 : -65535);
+		}
+		capture4_prev = capture4;
+
+		capture3 = TIM3->CNT;
+		encoder3 += capture3 - capture3_prev;
+		if (labs(capture3-capture3_prev)>32767) {
+			encoder3 += (capture3<capture3_prev ? 65535 : -65535);
+		}
+		capture3_prev = capture3;
+
+		char buff[255] = {0};
+		sprintf(buff, "tim3: %ld\t tim4: %ld\r\n", encoder3, encoder4);
+		HAL_UART_Transmit(&huart1, (uint8_t *)buff, strlen(buff), 1000);
+
+	    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dac1_val);
+	    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 4095-dac1_val);
+	    dac1_val = dac1_val? 0: 4095;
+	}
+}
 
 /* USER CODE END 0 */
 
@@ -115,12 +148,18 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
+  HAL_TIM_Base_Start_IT(&htim1);
+  HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
+  HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+
+  __HAL_DAC_ENABLE(&hdac, DAC_CHANNEL_1);
+  __HAL_DAC_ENABLE(&hdac, DAC_CHANNEL_2);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+  while (1) {
 
   /* USER CODE END WHILE */
 
