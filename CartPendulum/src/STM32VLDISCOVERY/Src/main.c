@@ -82,6 +82,47 @@ static void MX_ADC1_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+uint32_t hal_ticks_us(void) {
+	uint32_t prim;
+
+	// Read PRIMASK register, check interrupt status before you disable them
+	// Returns 0 if they are enabled, or non-zero if disabled
+	prim = __get_PRIMASK();
+
+	// Disable interrupts
+	__disable_irq();
+
+	uint32_t counter = SysTick->VAL;
+	uint32_t milliseconds = HAL_GetTick();
+	uint32_t status = SysTick->CTRL;
+
+	// Enable interrupts back only if they were enabled before we disable it here in this function
+	if (!prim) {
+		__enable_irq();
+	}
+
+	// It's still possible for the countflag bit to get set if the counter was
+	// reloaded between reading VAL and reading CTRL. With interrupts  disabled
+	// it definitely takes less than 50 HCLK cycles between reading VAL and
+	// reading CTRL, so the test (counter > 50) is to cover the case where VAL
+	// is +ve and very close to zero, and the COUNTFLAG bit is also set.
+	if ((status & SysTick_CTRL_COUNTFLAG_Msk) && counter > 50) {
+		// This means that the HW reloaded VAL between the time we read VAL and the
+		// time we read CTRL, which implies that there is an interrupt pending
+		// to increment the tick counter.
+		milliseconds++;
+	}
+	uint32_t load = SysTick->LOAD;
+	counter = load - counter; // Convert from decrementing to incrementing
+
+	// ((load + 1) / 1000) is the number of counts per microsecond.
+	//
+	// counter / ((load + 1) / 1000) scales from the systick clock to microseconds
+	// and is the same thing as (counter * 1000) / (load + 1)
+	return milliseconds * 1000 + (counter * 1000) / (load + 1);
+}
+
+
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance==TIM1) {
@@ -100,13 +141,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		capture3_prev = capture3;
 
 		char buff[255] = {0};
-		sprintf(buff, "tim3: %ld\t tim4: %ld\r\n", encoder3, encoder4);
+		uint32_t millis = hal_ticks_us();
+		sprintf(buff, "micros: %ld\t tim3: %ld\t tim4: %ld\r\n", millis, encoder3, encoder4);
 		HAL_UART_Transmit(&huart1, (uint8_t *)buff, strlen(buff), 1000);
 
-	    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dac1_val);
+		HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dac1_val);
 	    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 4095-dac1_val);
 	    dac1_val = dac1_val? 0: 4095;
 	}
+
 }
 
 /* USER CODE END 0 */
@@ -151,6 +194,7 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim1);
   HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+
 
   __HAL_DAC_ENABLE(&hdac, DAC_CHANNEL_1);
   __HAL_DAC_ENABLE(&hdac, DAC_CHANNEL_2);
@@ -402,7 +446,7 @@ static void MX_USART1_UART_Init(void)
 {
 
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 230400;
+  huart1.Init.BaudRate = 921600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
