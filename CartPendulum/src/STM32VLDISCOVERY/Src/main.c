@@ -43,11 +43,13 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 
 DAC_HandleTypeDef hdac;
 
@@ -60,15 +62,25 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
+volatile uint8_t system_task=0;
 volatile int32_t capture4=0, capture4_prev=0, encoder4=0;
 volatile int32_t capture3=0, capture3_prev=0, encoder3=0;
-volatile int32_t dac1_val=0, dac2_val=0;
+
+#define ADC_BUF_SIZE 256
+volatile uint16_t ADCReadings[ADC_BUF_SIZE];
+volatile int32_t adc_zero_amps = 2048;
+volatile uint32_t useconds=0, useconds_prev=0, time_of_start=0;
+volatile int32_t cart_position=0, cart_position_prev=0;
+volatile float targetX=0, dtargetX=0.0004;
+
+volatile float hatX=0, hatQ=0, hatLPX=0, hatLPQ=0;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART1_UART_Init(void);
@@ -122,34 +134,147 @@ uint32_t hal_ticks_us(void) {
 	return milliseconds * 1000 + (counter * 1000) / (load + 1);
 }
 
+inline int32_t get_cart_position() {
+    return encoder4*18L; // microns, #ticks*(36 teeth * 0.002m pitch)/(1000 ticks/rev * 4x) gives meters, multiplying it by 10^6 we get microns
+}
+
+inline int32_t get_pendulum_angle() {
+    return (encoder3-4000)*45L; // millidegrees, #ticks * 360 / (2000 ticks/rev * 4x) gives degrees
+}
 
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance==TIM1) {
-		capture4 = TIM4->CNT;
-		encoder4 += capture4 - capture4_prev;
-		if (labs(capture4-capture4_prev)>32767) {
-			encoder4 += (capture4<capture4_prev ? 65535 : -65535);
-		}
-		capture4_prev = capture4;
+		{ // handle eventual overflows in the encoder reading
+			capture4 = TIM4->CNT;
+			encoder4 += capture4 - capture4_prev;
+			if (labs(capture4 - capture4_prev) > 32767) {
+				encoder4 += (capture4 < capture4_prev ? 65535 : -65535);
+			}
+			capture4_prev = capture4;
 
-		capture3 = TIM3->CNT;
-		encoder3 += capture3 - capture3_prev;
-		if (labs(capture3-capture3_prev)>32767) {
-			encoder3 += (capture3<capture3_prev ? 65535 : -65535);
+			capture3 = TIM3->CNT;
+			encoder3 += capture3 - capture3_prev;
+			if (labs(capture3 - capture3_prev) > 32767) {
+				encoder3 += (capture3 < capture3_prev ? 65535 : -65535);
+			}
+			capture3_prev = capture3;
 		}
-		capture3_prev = capture3;
+
+		int32_t adc_accum = 0;
+		for (uint16_t i=0; i<ADC_BUF_SIZE; i++) {
+			adc_accum += ADCReadings[i];
+		}
+		adc_accum /= ADC_BUF_SIZE;
+
+		if (0==system_task) {
+			adc_zero_amps = adc_accum;
+		}
+
+		float current_measured = (adc_accum-adc_zero_amps)/4095.0*20.0;
+
+		cart_position_prev = cart_position;
+        cart_position  = get_cart_position();
+        int32_t pendulum_angle = get_pendulum_angle();
+
+        while (pendulum_angle> 180000) pendulum_angle -= 360000; // mod 2pi
+        while (pendulum_angle<-180000) pendulum_angle += 360000;
+
+		useconds_prev = useconds;
+		useconds = hal_ticks_us();
+
+        float mesQ = pendulum_angle*3.14159/180000.;  // radians
+        float mesX = cart_position/1000000.;          // meters
 
 		char buff[255] = {0};
-		uint32_t millis = hal_ticks_us();
-		sprintf(buff, "micros: %ld\t tim3: %ld\t tim4: %ld\r\n", millis, encoder3, encoder4);
+		sprintf(buff, "%d %d\t%ld, %1.3f, %3.4f, %3.4f\r\n", system_task, useconds-useconds_prev, useconds-time_of_start, current_measured, mesX, mesQ);
 		HAL_UART_Transmit(&huart1, (uint8_t *)buff, strlen(buff), 1000);
 
-		HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dac1_val);
-	    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 4095-dac1_val);
-	    dac1_val = dac1_val? 0: 4095;
-	}
+		if (1==system_task) {
+			hatQ = pendulum_angle*3.14159/180.000/1000.; // radians
+			hatX = cart_position/1000000.;
+			if (labs(pendulum_angle)<5000L) {
+				system_task = 2;
+				time_of_start = useconds;
+			}
+		}
 
+
+		if (2==system_task) {
+	        const float Ki = 9.268;
+	        const float fricpos =  3.986*.8;
+	        const float fricneg = -2.875*.8;
+
+	        float u = current_measured*Ki;
+	        if (cart_position!=cart_position_prev) {
+	            if (cart_position>cart_position_prev)
+	                u -= fricpos;
+	            else
+	                u -= fricneg;
+	        } else {
+	            if (u>0) {
+	                if (u>fricpos) u -= fricpos;
+	                else u = 0;
+	            } else {
+	                if (u<fricneg) u -= fricneg;
+	                else u = 0;
+	            }
+	        }
+
+	        float dt = (useconds-useconds_prev)/1000000.; // seconds
+
+	        float cosQ = cos(mesQ);
+	        float sinQ = sin(mesQ);
+
+	        float A = 1./sqrt(731.775 - 152.361*cosQ*cosQ);
+	        float hatDQ = (123.018*hatLPQ) * A;
+	        float hatDX = 0.933*hatLPX - (11.512*hatLPQ*cosQ) * A;
+	        float diffX = hatDX + 50*(mesX - hatX);
+	        float diffQ = 80*(mesQ - hatQ) + hatDQ;
+	        float diffLPX = 373.066*mesX - 373.066*hatX + .933*u + (4604.916*cosQ*(hatQ - mesQ)) * A;
+	        float diffLPQ = (18452.7315*(mesQ - hatQ) + 129.832*sinQ - 11.512*u*cosQ) * A;
+
+	        hatX   = hatX   + dt*diffX;
+	        hatQ   = hatQ   + dt*diffQ;
+	        hatLPX = hatLPX + dt*diffLPX;
+	        hatLPQ = hatLPQ + dt*diffLPQ;
+
+	        const float K[] = {21.813858, 23.789165, 106.449942, 20.776078};
+            if (targetX > .2 || targetX<-.2) dtargetX = -dtargetX;
+            targetX += dtargetX;
+
+	        int32_t f = K[0]*(mesX-targetX) + K[1]*(hatDX-dtargetX/5) + K[2]*mesQ + K[3]*hatDQ; // N
+
+            float antifriction = 0;
+            if (cart_position!=cart_position_prev) {
+                if (cart_position>cart_position_prev) antifriction = fricpos;
+                else antifriction = fricneg;
+            } else {
+                if (fabs(f)>0.01) {
+                    if (f>0) antifriction = fricpos;
+                    else antifriction = fricneg;
+                } else f = 0;
+            }
+            float current_ref = (f + antifriction)/Ki;
+            if (current_ref >  3.3) current_ref =  3.3;
+            if (current_ref < -3.3) current_ref = -3.3;
+
+			int32_t current = current_ref*4095/3.3;
+			if (current > 0) {
+				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, current);
+				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
+			} else {
+				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
+				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, -current);
+			}
+
+	        if (labs(cart_position)>300000L || labs(pendulum_angle)>30000L) {
+	            system_task = 9;
+				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
+				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
+	        }
+		}
+	}
 }
 
 /* USER CODE END 0 */
@@ -183,6 +308,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM4_Init();
   MX_TIM3_Init();
   MX_USART1_UART_Init();
@@ -195,9 +321,13 @@ int main(void)
   HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
 
-
   __HAL_DAC_ENABLE(&hdac, DAC_CHANNEL_1);
   __HAL_DAC_ENABLE(&hdac, DAC_CHANNEL_2);
+  HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
+  HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
+
+  HAL_ADCEx_Calibration_Start(&hadc1);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*) ADCReadings, ADC_BUF_SIZE);
 
   /* USER CODE END 2 */
 
@@ -281,7 +411,7 @@ static void MX_ADC1_Init(void)
     */
   hadc1.Instance = ADC1;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
@@ -295,7 +425,7 @@ static void MX_ADC1_Init(void)
     */
   sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -345,7 +475,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 23;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 1999;
+  htim1.Init.Period = 4999;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -386,11 +516,11 @@ static void MX_TIM3_Init(void)
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 0;
+  sConfig.IC1Filter = 15;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 0;
+  sConfig.IC2Filter = 15;
   if (HAL_TIM_Encoder_Init(&htim3, &sConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -460,6 +590,21 @@ static void MX_USART1_UART_Init(void)
 
 }
 
+/** 
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void) 
+{
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+
+}
+
 /** Configure pins as 
         * Analog 
         * Input 
@@ -470,11 +615,23 @@ static void MX_USART1_UART_Init(void)
 static void MX_GPIO_Init(void)
 {
 
+  GPIO_InitTypeDef GPIO_InitStruct;
+
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
 }
 
