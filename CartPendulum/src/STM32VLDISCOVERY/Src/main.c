@@ -53,7 +53,7 @@ DMA_HandleTypeDef hdma_adc1;
 
 DAC_HandleTypeDef hdac;
 
-TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
@@ -73,7 +73,20 @@ volatile uint32_t useconds=0, useconds_prev=0, time_of_start=0;
 volatile int32_t cart_position=0, cart_position_prev=0;
 volatile float targetX=0, dtargetX=0.0004;
 
+// UNCOMMENT ONE OF THESE:
+
+// parameter-based estimation
+//#define PEBO
+// simplified GESO for PLvCC
+#define KKL
+
+#if defined PEBO
 volatile float hatX=0, hatQ=0, hatLPX=0, hatLPQ=0;
+#elif defined KKL
+const float gainX = -7.;
+const float gainQ = -2.;
+volatile float ZX=0, ZQ=0;
+#endif
 
 /* USER CODE END PV */
 
@@ -85,8 +98,8 @@ static void MX_TIM4_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_DAC_Init(void);
-static void MX_TIM1_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_TIM2_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -144,7 +157,7 @@ inline int32_t get_pendulum_angle() {
 
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	if (htim->Instance==TIM1) {
+	if (htim->Instance==TIM2) {
 		{ // handle eventual overflows in the encoder reading
 			capture4 = TIM4->CNT;
 			encoder4 += capture4 - capture4_prev;
@@ -187,15 +200,23 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         float mesX = cart_position/1000000.;          // meters
 
 		char buff[255] = {0};
-		sprintf(buff, "%d %d\t%ld, %1.3f, %3.4f, %3.4f\r\n", system_task, useconds-useconds_prev, useconds-time_of_start, current_measured, mesX, mesQ);
+		sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f, %3.4f\r\n", (useconds-time_of_start)*1e-6, current_measured, targetX, mesX, mesQ);
+		if (2==system_task)
 		HAL_UART_Transmit(&huart1, (uint8_t *)buff, strlen(buff), 1000);
 
 		if (1==system_task) {
-			hatQ = pendulum_angle*3.14159/180.000/1000.; // radians
-			hatX = cart_position/1000000.;
+#if defined PEBO
+            hatQ = mesQ;
+            hatX = mesX;
+#elif defined KKL
+            ZQ = mesQ*gainQ;
+            ZX = mesX*gainX;
+#endif
 			if (labs(pendulum_angle)<5000L) {
 				system_task = 2;
 				time_of_start = useconds;
+				char buff2[255] = "#time, current, target_x, x, q\r\n";
+				HAL_UART_Transmit(&huart1, (uint8_t *)buff2, strlen(buff2), 1000);
 			}
 		}
 
@@ -226,6 +247,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	        float cosQ = cos(mesQ);
 	        float sinQ = sin(mesQ);
 
+#if defined PEBO
 	        float A = 1./sqrt(731.775 - 152.361*cosQ*cosQ);
 	        float hatDQ = (123.018*hatLPQ) * A;
 	        float hatDX = 0.933*hatLPX - (11.512*hatLPQ*cosQ) * A;
@@ -234,16 +256,30 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	        float diffLPX = 373.066*mesX - 373.066*hatX + .933*u + (4604.916*cosQ*(hatQ - mesQ)) * A;
 	        float diffLPQ = (18452.7315*(mesQ - hatQ) + 129.832*sinQ - 11.512*u*cosQ) * A;
 
-	        hatX   = hatX   + dt*diffX;
-	        hatQ   = hatQ   + dt*diffQ;
-	        hatLPX = hatLPX + dt*diffLPX;
-	        hatLPQ = hatLPQ + dt*diffLPQ;
+	        hatX   += dt*diffX;
+	        hatQ   += dt*diffQ;
+	        hatLPX += dt*diffLPX;
+	        hatLPQ += dt*diffLPQ;
+#elif defined KKL
+            float A = 1./sqrtf(7.3178 - 1.5236*cosQ*cosQ);
+            float eX = ZX - gainX*mesX;
+            float eQ = ZQ - gainQ*mesQ;
+
+            float hatDQ = 12.3018*eQ*A;
+            float hatDX = 0.9327*eX - 1.1512*eQ*cosQ*A;
+
+            float diffZQ = (12.9832*sinQ - 1.1512*u*cosQ)*A + gainQ*hatDQ;
+            float diffZX = 0.9327*u + gainX*hatDX;
+
+            ZX += dt*diffZX;
+            ZQ += dt*diffZQ;
+#endif
 
 	        const float K[] = {21.813858, 23.789165, 106.449942, 20.776078};
             if (targetX > .2 || targetX<-.2) dtargetX = -dtargetX;
             targetX += dtargetX;
 
-	        int32_t f = K[0]*(mesX-targetX) + K[1]*(hatDX-dtargetX/5) + K[2]*mesQ + K[3]*hatDQ; // N
+	        int32_t f = K[0]*(mesX-targetX) + K[1]*(hatDX-dtargetX/0.005) + K[2]*mesQ + K[3]*hatDQ; // N
 
             float antifriction = 0;
             if (cart_position!=cart_position_prev) {
@@ -268,7 +304,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, -current);
 			}
 
-	        if (labs(cart_position)>300000L || labs(pendulum_angle)>30000L) {
+	        if (labs(cart_position)>350000L || labs(pendulum_angle)>30000L) {
 	            system_task = 9;
 				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
 				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
@@ -313,11 +349,11 @@ int main(void)
   MX_TIM3_Init();
   MX_USART1_UART_Init();
   MX_DAC_Init();
-  MX_TIM1_Init();
   MX_ADC1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_TIM_Base_Start_IT(&htim1);
+  HAL_TIM_Base_Start_IT(&htim2);
   HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
 
@@ -465,34 +501,33 @@ static void MX_DAC_Init(void)
 
 }
 
-/* TIM1 init function */
-static void MX_TIM1_Init(void)
+/* TIM2 init function */
+static void MX_TIM2_Init(void)
 {
 
   TIM_ClockConfigTypeDef sClockSourceConfig;
   TIM_MasterConfigTypeDef sMasterConfig;
 
-  htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 23;
-  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 4999;
-  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 0;
-  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 23;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
 
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
 
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
@@ -552,11 +587,11 @@ static void MX_TIM4_Init(void)
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 0;
+  sConfig.IC1Filter = 12;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 0;
+  sConfig.IC2Filter = 12;
   if (HAL_TIM_Encoder_Init(&htim4, &sConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
