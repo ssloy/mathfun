@@ -56,6 +56,7 @@ DAC_HandleTypeDef hdac;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart1;
 
@@ -63,12 +64,15 @@ UART_HandleTypeDef huart1;
 /* Private variables ---------------------------------------------------------*/
 
 volatile uint8_t system_task=0;
+
 volatile int32_t capture4=0, capture4_prev=0, encoder4=0;
 volatile int32_t capture3=0, capture3_prev=0, encoder3=0;
 
 #define ADC_BUF_SIZE 256
 volatile uint16_t ADCReadings[ADC_BUF_SIZE];
 volatile int32_t adc_zero_amps = 2048;
+volatile int32_t adc_accum = 0;
+
 volatile uint32_t useconds=0, useconds_prev=0, time_of_start=0;
 volatile int32_t cart_position=0, cart_position_prev=0;
 volatile float targetX=0, dtargetX=0.0004;
@@ -99,6 +103,7 @@ static void MX_USART1_UART_Init(void);
 static void MX_DAC_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM6_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -180,10 +185,33 @@ int32_t get_pendulum_angle() {
     return (encoder3-4000)*45L; // millidegrees, #ticks * 360 / (2000 ticks/rev * 4x) gives degrees
 }
 
-
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	if (htim->Instance==TIM2) {
-	}
+  if (htim->Instance == TIM6) {
+    // handle eventual overflows in the encoder reading
+    capture4 = TIM4->CNT;
+    encoder4 += capture4 - capture4_prev;
+    if (labs(capture4 - capture4_prev) > 32767) {
+      encoder4 += (capture4 < capture4_prev ? 65535 : -65535);
+    }
+    capture4_prev = capture4;
+
+    capture3 = TIM3->CNT;
+    encoder3 += capture3 - capture3_prev;
+    if (labs(capture3 - capture3_prev) > 32767) {
+      encoder3 += (capture3 < capture3_prev ? 65535 : -65535);
+    }
+    capture3_prev = capture3;
+
+    adc_accum = 0;
+    for (uint16_t i = 0; i < ADC_BUF_SIZE; i++) {
+      adc_accum += ADCReadings[i];
+    }
+    adc_accum /= ADC_BUF_SIZE;
+
+    if (0 == system_task) {
+      adc_zero_amps = adc_accum;
+    }
+  }
 }
 
 void set_current(float current_ref) {
@@ -197,6 +225,35 @@ void set_current(float current_ref) {
   }
 }
 
+float get_current() {
+  return (adc_accum - adc_zero_amps) / 4095.0 * 20.0;
+}
+
+/*
+// frequencies are given in mHz
+void chirp_current_open_loop(int16_t amplitude, int32_t start_freq, int32_t end_freq, int32_t duration_ms, FILE *uart_stream_ptr) {
+    fprintf_P(uart_stream_ptr, PSTR("time(us),reference current(mA),current(mA),cart position(um),pendulum angle(mdeg)\r\n"));
+    int32_t time_of_start, useconds;
+    useconds = time_of_start = get_current_time();
+
+    int32_t cart_position, pendulum_angle;
+    int16_t current_ref, current_measured;
+    while (useconds < time_of_start+duration_ms*1000L) {
+        useconds = get_current_time();
+        int32_t cur_ms = (useconds-time_of_start)/1000L;
+        int32_t phi = ((start_freq + ((end_freq-start_freq)*cur_ms)/(2L*duration_ms))*cur_ms)/1000L; // период синусоиды равен тысяче единиц phi
+        int32_t sine_idx = ((phi*512L)/1000L) & 0x1FF;
+        current_ref = (sine(sine_idx)*(int32_t)(amplitude))/255L;
+        current_measured = current(current_ref);
+
+        cart_position = get_cart_position();
+        pendulum_angle = get_pendulum_angle();
+
+        fprintf_P(uart_stream_ptr, PSTR("%ld,%d,%d,%ld,%ld\r\n"), useconds, current_ref, current_measured, cart_position, pendulum_angle);
+    }
+    current(0);
+}
+*/
 /* USER CODE END 0 */
 
 /**
@@ -235,9 +292,10 @@ int main(void)
   MX_DAC_Init();
   MX_ADC1_Init();
   MX_TIM2_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_TIM_Base_Start_IT(&htim2);
+  HAL_TIM_Base_Start_IT(&htim6);
   HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
 
@@ -254,40 +312,10 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-    { // handle eventual overflows in the encoder reading
-      capture4 = TIM4->CNT;
-      encoder4 += capture4 - capture4_prev;
-      if (labs(capture4 - capture4_prev) > 32767) {
-        encoder4 += (capture4 < capture4_prev ? 65535 : -65535);
-      }
-      capture4_prev = capture4;
-
-      capture3 = TIM3->CNT;
-      encoder3 += capture3 - capture3_prev;
-      if (labs(capture3 - capture3_prev) > 32767) {
-        encoder3 += (capture3 < capture3_prev ? 65535 : -65535);
-      }
-      capture3_prev = capture3;
-    }
-
-    int32_t adc_accum = 0;
-    for (uint16_t i = 0; i < ADC_BUF_SIZE; i++) {
-      adc_accum += ADCReadings[i];
-    }
-    adc_accum /= ADC_BUF_SIZE;
-
-    if (0 == system_task) {
-      adc_zero_amps = adc_accum;
-    }
-
-    float current_measured = (adc_accum - adc_zero_amps) / 4095.0 * 20.0;
-
     cart_position_prev = cart_position;
     cart_position = get_cart_position();
     int32_t pendulum_angle = get_pendulum_angle();
+    float current_measured = get_current();
 
     while (pendulum_angle > 180000)  pendulum_angle -= 360000; // mod 2pi
     while (pendulum_angle < -180000) pendulum_angle += 360000;
@@ -298,8 +326,10 @@ int main(void)
     float mesQ = pendulum_angle * 3.14159 / 180000.;  // radians
     float mesX = cart_position / 1000000.;          // meters
 
-    if (1 == system_task) {
+  /* USER CODE END WHILE */
 
+  /* USER CODE BEGIN 3 */
+    if (1 == system_task) {
 #if defined PEBO
       hatQ = mesQ;
       hatX = mesX;
@@ -419,17 +449,18 @@ int main(void)
 }
 
 /**
- * @brief System Clock Configuration
- * @retval None
- */
-void SystemClock_Config(void) {
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
 
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
   RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
-  /**Initializes the CPU, AHB and APB busses clocks
-   */
+    /**Initializes the CPU, AHB and APB busses clocks 
+    */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
@@ -637,6 +668,31 @@ static void MX_TIM4_Init(void)
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
+/* TIM6 init function */
+static void MX_TIM6_Init(void)
+{
+
+  TIM_MasterConfigTypeDef sMasterConfig;
+
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 23;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 1999;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
