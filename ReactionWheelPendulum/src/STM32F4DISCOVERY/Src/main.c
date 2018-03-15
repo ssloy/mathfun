@@ -41,6 +41,8 @@
 
 /* USER CODE BEGIN Includes */
 
+#include "dwt_stm32_delay.h"
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -69,7 +71,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		uint16_t LEDS[4] = {GPIO_PIN_12, GPIO_PIN_13, GPIO_PIN_14, GPIO_PIN_15};
 		HAL_GPIO_TogglePin(GPIOD, LEDS[led]);
 		led = (led<3 ? led+1 : 0);
-		printf("%d\n", led);
+//		printf("%d\n", led);
 	}
 }
 
@@ -92,7 +94,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  if (DWT_Delay_Init()) while(1);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -108,13 +110,22 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   HAL_TIM_Base_Start_IT(&htim4);
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  uint32_t cnt_micros=0, cnt_micros_prev=0, cnt_overflow=0;
+  const uint32_t MHz = HAL_RCC_GetHCLKFreq()/1000000;
+  const uint32_t overflow_micros = 4294967295L/MHz;
   while (1)
   {
+	    __ASM volatile ("NOP");
+	    HAL_Delay(100);
+	    cnt_micros_prev = cnt_micros;
+	    cnt_micros = DWT->CYCCNT/MHz;
+	    if (cnt_micros_prev>cnt_micros) cnt_overflow++;
+	    uint32_t micros = cnt_overflow*overflow_micros + cnt_micros;
+	    printf("millis: %lu\t micros: %lu\t micros: %lu\n", HAL_GetTick(), cnt_micros, micros);
 
   /* USER CODE END WHILE */
 
