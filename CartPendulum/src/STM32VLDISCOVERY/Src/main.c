@@ -74,11 +74,10 @@ volatile int32_t cart_position=0, cart_position_prev=0;
 volatile float targetX=0, dtargetX=0.0004;
 
 // UNCOMMENT ONE OF THESE:
-
 // parameter-based estimation
-//#define PEBO
+#define PEBO
 // simplified GESO for PLvCC
-#define KKL
+//#define KKL
 
 #if defined PEBO
 volatile float hatX=0, hatQ=0, hatLPX=0, hatLPQ=0;
@@ -107,6 +106,31 @@ static void MX_TIM2_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+
+#if 1
+uint32_t hal_ticks_us(void) {
+	uint32_t prim;
+	prim = __get_PRIMASK();
+	__disable_irq();
+
+	uint32_t counter1 = SysTick->VAL;
+	uint32_t millis1 = HAL_GetTick();
+	uint32_t counter2 = SysTick->VAL;
+	uint32_t millis2 = HAL_GetTick();
+	uint32_t counter3 = SysTick->VAL;
+
+	if (!prim) {
+		__enable_irq();
+	}
+
+	if (counter1>counter2)	{ // no reload while reading millis1
+		return millis1*1000L + (23999-counter1)/24;
+	}
+	if (counter3>counter2) // is not supposed to happen
+		while (1);
+	return millis2*1000L + (23999-counter3)/24;
+}
+#else
 uint32_t hal_ticks_us(void) {
 	uint32_t prim;
 
@@ -116,7 +140,7 @@ uint32_t hal_ticks_us(void) {
 
 	// Disable interrupts
 	__disable_irq();
-
+   (void) SysTick->CTRL;
 	uint32_t counter = SysTick->VAL;
 	uint32_t milliseconds = HAL_GetTick();
 	uint32_t status = SysTick->CTRL;
@@ -146,171 +170,31 @@ uint32_t hal_ticks_us(void) {
 	// and is the same thing as (counter * 1000) / (load + 1)
 	return milliseconds * 1000 + (counter * 1000) / (load + 1);
 }
+#endif
 
-inline int32_t get_cart_position() {
+int32_t get_cart_position() {
     return encoder4*18L; // microns, #ticks*(36 teeth * 0.002m pitch)/(1000 ticks/rev * 4x) gives meters, multiplying it by 10^6 we get microns
 }
 
-inline int32_t get_pendulum_angle() {
+int32_t get_pendulum_angle() {
     return (encoder3-4000)*45L; // millidegrees, #ticks * 360 / (2000 ticks/rev * 4x) gives degrees
 }
 
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance==TIM2) {
-		{ // handle eventual overflows in the encoder reading
-			capture4 = TIM4->CNT;
-			encoder4 += capture4 - capture4_prev;
-			if (labs(capture4 - capture4_prev) > 32767) {
-				encoder4 += (capture4 < capture4_prev ? 65535 : -65535);
-			}
-			capture4_prev = capture4;
-
-			capture3 = TIM3->CNT;
-			encoder3 += capture3 - capture3_prev;
-			if (labs(capture3 - capture3_prev) > 32767) {
-				encoder3 += (capture3 < capture3_prev ? 65535 : -65535);
-			}
-			capture3_prev = capture3;
-		}
-
-		int32_t adc_accum = 0;
-		for (uint16_t i=0; i<ADC_BUF_SIZE; i++) {
-			adc_accum += ADCReadings[i];
-		}
-		adc_accum /= ADC_BUF_SIZE;
-
-		if (0==system_task) {
-			adc_zero_amps = adc_accum;
-		}
-
-		float current_measured = (adc_accum-adc_zero_amps)/4095.0*20.0;
-
-		cart_position_prev = cart_position;
-        cart_position  = get_cart_position();
-        int32_t pendulum_angle = get_pendulum_angle();
-
-        while (pendulum_angle> 180000) pendulum_angle -= 360000; // mod 2pi
-        while (pendulum_angle<-180000) pendulum_angle += 360000;
-
-		useconds_prev = useconds;
-		useconds = hal_ticks_us();
-
-        float mesQ = pendulum_angle*3.14159/180000.;  // radians
-        float mesX = cart_position/1000000.;          // meters
-
-		char buff[255] = {0};
-		sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f, %3.4f\r\n", (useconds-time_of_start)*1e-6, current_measured, targetX, mesX, mesQ);
-		if (2==system_task)
-		HAL_UART_Transmit(&huart1, (uint8_t *)buff, strlen(buff), 1000);
-
-		if (1==system_task) {
-#if defined PEBO
-            hatQ = mesQ;
-            hatX = mesX;
-#elif defined KKL
-            ZQ = mesQ*gainQ;
-            ZX = mesX*gainX;
-#endif
-			if (labs(pendulum_angle)<5000L) {
-				system_task = 2;
-				time_of_start = useconds;
-				char buff2[255] = "#time, current, target_x, x, q\r\n";
-				HAL_UART_Transmit(&huart1, (uint8_t *)buff2, strlen(buff2), 1000);
-			}
-		}
-
-
-		if (2==system_task) {
-	        const float Ki = 9.268;
-	        const float fricpos =  3.986*.8;
-	        const float fricneg = -2.875*.8;
-
-	        float u = current_measured*Ki;
-	        if (cart_position!=cart_position_prev) {
-	            if (cart_position>cart_position_prev)
-	                u -= fricpos;
-	            else
-	                u -= fricneg;
-	        } else {
-	            if (u>0) {
-	                if (u>fricpos) u -= fricpos;
-	                else u = 0;
-	            } else {
-	                if (u<fricneg) u -= fricneg;
-	                else u = 0;
-	            }
-	        }
-
-	        float dt = (useconds-useconds_prev)/1000000.; // seconds
-
-	        float cosQ = cos(mesQ);
-	        float sinQ = sin(mesQ);
-
-#if defined PEBO
-	        float A = 1./sqrt(731.775 - 152.361*cosQ*cosQ);
-	        float hatDQ = (123.018*hatLPQ) * A;
-	        float hatDX = 0.933*hatLPX - (11.512*hatLPQ*cosQ) * A;
-	        float diffX = hatDX + 50*(mesX - hatX);
-	        float diffQ = 80*(mesQ - hatQ) + hatDQ;
-	        float diffLPX = 373.066*mesX - 373.066*hatX + .933*u + (4604.916*cosQ*(hatQ - mesQ)) * A;
-	        float diffLPQ = (18452.7315*(mesQ - hatQ) + 129.832*sinQ - 11.512*u*cosQ) * A;
-
-	        hatX   += dt*diffX;
-	        hatQ   += dt*diffQ;
-	        hatLPX += dt*diffLPX;
-	        hatLPQ += dt*diffLPQ;
-#elif defined KKL
-            float A = 1./sqrtf(7.3178 - 1.5236*cosQ*cosQ);
-            float eX = ZX - gainX*mesX;
-            float eQ = ZQ - gainQ*mesQ;
-
-            float hatDQ = 12.3018*eQ*A;
-            float hatDX = 0.9327*eX - 1.1512*eQ*cosQ*A;
-
-            float diffZQ = (12.9832*sinQ - 1.1512*u*cosQ)*A + gainQ*hatDQ;
-            float diffZX = 0.9327*u + gainX*hatDX;
-
-            ZX += dt*diffZX;
-            ZQ += dt*diffZQ;
-#endif
-
-	        const float K[] = {21.813858, 23.789165, 106.449942, 20.776078};
-            if (targetX > .2 || targetX<-.2) dtargetX = -dtargetX;
-            targetX += dtargetX;
-
-	        int32_t f = K[0]*(mesX-targetX) + K[1]*(hatDX-dtargetX/0.005) + K[2]*mesQ + K[3]*hatDQ; // N
-
-            float antifriction = 0;
-            if (cart_position!=cart_position_prev) {
-                if (cart_position>cart_position_prev) antifriction = fricpos;
-                else antifriction = fricneg;
-            } else {
-                if (fabs(f)>0.01) {
-                    if (f>0) antifriction = fricpos;
-                    else antifriction = fricneg;
-                } else f = 0;
-            }
-            float current_ref = (f + antifriction)/Ki;
-            if (current_ref >  3.3) current_ref =  3.3;
-            if (current_ref < -3.3) current_ref = -3.3;
-
-			int32_t current = current_ref*4095/3.3;
-			if (current > 0) {
-				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, current);
-				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
-			} else {
-				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
-				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, -current);
-			}
-
-	        if (labs(cart_position)>350000L || labs(pendulum_angle)>30000L) {
-	            system_task = 9;
-				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
-				HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
-	        }
-		}
 	}
+}
+
+void set_current(float current_ref) {
+  int32_t current = current_ref * 4095 / 3.;
+  if (current > 0) {
+    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, current);
+    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
+  } else {
+    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
+    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, -current);
+  }
 }
 
 /* USER CODE END 0 */
@@ -370,29 +254,182 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
+    /* USER CODE END WHILE */
 
-  /* USER CODE END WHILE */
+    /* USER CODE BEGIN 3 */
+    { // handle eventual overflows in the encoder reading
+      capture4 = TIM4->CNT;
+      encoder4 += capture4 - capture4_prev;
+      if (labs(capture4 - capture4_prev) > 32767) {
+        encoder4 += (capture4 < capture4_prev ? 65535 : -65535);
+      }
+      capture4_prev = capture4;
 
-  /* USER CODE BEGIN 3 */
+      capture3 = TIM3->CNT;
+      encoder3 += capture3 - capture3_prev;
+      if (labs(capture3 - capture3_prev) > 32767) {
+        encoder3 += (capture3 < capture3_prev ? 65535 : -65535);
+      }
+      capture3_prev = capture3;
+    }
 
+    int32_t adc_accum = 0;
+    for (uint16_t i = 0; i < ADC_BUF_SIZE; i++) {
+      adc_accum += ADCReadings[i];
+    }
+    adc_accum /= ADC_BUF_SIZE;
+
+    if (0 == system_task) {
+      adc_zero_amps = adc_accum;
+    }
+
+    float current_measured = (adc_accum - adc_zero_amps) / 4095.0 * 20.0;
+
+    cart_position_prev = cart_position;
+    cart_position = get_cart_position();
+    int32_t pendulum_angle = get_pendulum_angle();
+
+    while (pendulum_angle > 180000)  pendulum_angle -= 360000; // mod 2pi
+    while (pendulum_angle < -180000) pendulum_angle += 360000;
+
+    useconds_prev = useconds;
+    useconds = hal_ticks_us();
+
+    float mesQ = pendulum_angle * 3.14159 / 180000.;  // radians
+    float mesX = cart_position / 1000000.;          // meters
+
+    if (1 == system_task) {
+
+#if defined PEBO
+      hatQ = mesQ;
+      hatX = mesX;
+#elif defined KKL
+      ZQ = mesQ * gainQ;
+      ZX = mesX * gainX;
+#endif
+      if (labs(pendulum_angle) < 5000L) {
+        system_task = 2;
+        time_of_start = useconds;
+        char buff2[255] = "#time, current, target_x, x, q\r\n";
+        HAL_UART_Transmit(&huart1, (uint8_t *) buff2, strlen(buff2), 3);
+      }
+    }
+
+    if (2 == system_task) {
+      const float Ki = 9.268;
+      const float fricpos = 3.986 * .8;
+      const float fricneg = -2.875 * .8;
+
+      float u = current_measured * Ki;
+      if (cart_position != cart_position_prev) {
+        if (cart_position > cart_position_prev)
+          u -= fricpos;
+        else
+          u -= fricneg;
+      } else {
+        if (u > 0) {
+          if (u > fricpos)
+            u -= fricpos;
+          else
+            u = 0;
+        } else {
+          if (u < fricneg)
+            u -= fricneg;
+          else
+            u = 0;
+        }
+      }
+
+      float dt = (useconds - useconds_prev) / 1000000.; // seconds
+
+      float cosQ = cos(mesQ);
+      float sinQ = sin(mesQ);
+
+#if defined PEBO
+      float A = 1./sqrtf(731.775 - 152.361*cosQ*cosQ);
+      float hatDQ = (123.018*hatLPQ) * A;
+      float hatDX = 0.933*hatLPX - (11.512*hatLPQ*cosQ) * A;
+      float diffX = hatDX + 50*(mesX - hatX);
+      float diffQ = 80*(mesQ - hatQ) + hatDQ;
+      float diffLPX = 373.066*mesX - 373.066*hatX + .933*u + (4604.916*cosQ*(hatQ - mesQ)) * A;
+      float diffLPQ = (18452.7315*(mesQ - hatQ) + 129.832*sinQ - 11.512*u*cosQ) * A;
+
+      hatX += dt*diffX;
+      hatQ += dt*diffQ;
+      hatLPX += dt*diffLPX;
+      hatLPQ += dt*diffLPQ;
+#elif defined KKL
+      float A = 1. / sqrtf(7.3178 - 1.5236 * cosQ * cosQ);
+      float eX = ZX - gainX * mesX;
+      float eQ = ZQ - gainQ * mesQ;
+
+      float hatDQ = 12.3018 * eQ * A;
+      float hatDX = 0.9327 * eX - 1.1512 * eQ * cosQ * A;
+
+      float diffZQ = (12.9832 * sinQ - 1.1512 * u * cosQ) * A + gainQ * hatDQ;
+      float diffZX = 0.9327 * u + gainX * hatDX;
+
+      ZX += dt * diffZX;
+      ZQ += dt * diffZQ;
+#endif
+
+      const float K[] = { 21.813858, 23.789165, 106.449942, 20.776078 };
+      if (targetX > .2 || targetX < -.2)
+        dtargetX = -dtargetX;
+      targetX += dtargetX;
+
+      int32_t f = K[0] * (mesX - targetX) + K[1] * (hatDX - dtargetX / 0.005) + K[2] * mesQ + K[3] * hatDQ; // Newtons
+
+      float antifriction = 0;
+      if (cart_position != cart_position_prev) {
+        if (cart_position > cart_position_prev)
+          antifriction = fricpos;
+        else
+          antifriction = fricneg;
+      } else {
+        if (fabs(f) > 0.01) {
+          if (f > 0)
+            antifriction = fricpos;
+          else
+            antifriction = fricneg;
+        } else
+          f = 0;
+      }
+      float current_ref = (f + antifriction) / Ki;
+      if (current_ref > 3.3)
+        current_ref = 3.3;
+      if (current_ref < -3.3)
+        current_ref = -3.3;
+
+      set_current(current_ref);
+
+      if (labs(cart_position) > 350000L || labs(pendulum_angle) > 30000L) {
+        system_task = 9;
+        set_current(0);
+      }
+
+      char buff[255] = { 0 };
+      sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, u, targetX, mesX, mesQ);
+      HAL_UART_Transmit(&huart1, (uint8_t *) buff, strlen(buff), 3);
+    }
+    while (hal_ticks_us() - useconds < 4900);
   }
   /* USER CODE END 3 */
 
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void) {
 
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
   RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
-    /**Initializes the CPU, AHB and APB busses clocks 
-    */
+  /**Initializes the CPU, AHB and APB busses clocks
+   */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
