@@ -44,6 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include "dwt_stm32_delay.h"
 
 /* USER CODE END Includes */
 
@@ -67,6 +68,7 @@ volatile uint8_t system_task=0;
 
 volatile int32_t capture4=0, capture4_prev=0, encoder4=0;
 volatile int32_t capture3=0, capture3_prev=0, encoder3=0;
+volatile uint32_t cnt_micros=0, cnt_micros_prev=0, cnt_overflow=0;
 
 #define ADC_BUF_SIZE 256
 volatile uint16_t ADCReadings[ADC_BUF_SIZE];
@@ -76,6 +78,9 @@ volatile int32_t adc_accum = 0;
 volatile uint32_t useconds=0, useconds_prev=0, time_of_start=0;
 volatile int32_t cart_position=0, cart_position_prev=0;
 volatile float targetX=0, dtargetX=0.0004;
+
+const uint32_t MHz = 24L;
+const uint32_t overflow_micros = 178956970L;
 
 // UNCOMMENT ONE OF THESE:
 // parameter-based estimation
@@ -112,96 +117,38 @@ static void MX_TIM6_Init(void);
 
 /* USER CODE BEGIN 0 */
 
-#if 1
-uint32_t hal_ticks_us(void) {
-	uint32_t prim;
-	prim = __get_PRIMASK();
-	__disable_irq();
-
-	uint32_t counter1 = SysTick->VAL;
-	uint32_t millis1 = HAL_GetTick();
-	uint32_t counter2 = SysTick->VAL;
-	uint32_t millis2 = HAL_GetTick();
-	uint32_t counter3 = SysTick->VAL;
-
-	if (!prim) {
-		__enable_irq();
-	}
-
-	if (counter1>counter2)	{ // no reload while reading millis1
-		return millis1*1000L + (23999-counter1)/24;
-	}
-	if (counter3>counter2) // is not supposed to happen
-		while (1);
-	return millis2*1000L + (23999-counter3)/24;
+uint32_t dwt_micros() {
+  cnt_micros_prev = cnt_micros;
+  cnt_micros = DWT->CYCCNT / MHz;
+  if (cnt_micros_prev > cnt_micros)
+    cnt_overflow++;
+  return cnt_overflow * overflow_micros + cnt_micros;
 }
-#else
-uint32_t hal_ticks_us(void) {
-	uint32_t prim;
-
-	// Read PRIMASK register, check interrupt status before you disable them
-	// Returns 0 if they are enabled, or non-zero if disabled
-	prim = __get_PRIMASK();
-
-	// Disable interrupts
-	__disable_irq();
-   (void) SysTick->CTRL;
-	uint32_t counter = SysTick->VAL;
-	uint32_t milliseconds = HAL_GetTick();
-	uint32_t status = SysTick->CTRL;
-
-	// Enable interrupts back only if they were enabled before we disable it here in this function
-	if (!prim) {
-		__enable_irq();
-	}
-
-	// It's still possible for the countflag bit to get set if the counter was
-	// reloaded between reading VAL and reading CTRL. With interrupts  disabled
-	// it definitely takes less than 50 HCLK cycles between reading VAL and
-	// reading CTRL, so the test (counter > 50) is to cover the case where VAL
-	// is +ve and very close to zero, and the COUNTFLAG bit is also set.
-	if ((status & SysTick_CTRL_COUNTFLAG_Msk) && counter > 50) {
-		// This means that the HW reloaded VAL between the time we read VAL and the
-		// time we read CTRL, which implies that there is an interrupt pending
-		// to increment the tick counter.
-		milliseconds++;
-	}
-	uint32_t load = SysTick->LOAD;
-	counter = load - counter; // Convert from decrementing to incrementing
-
-	// ((load + 1) / 1000) is the number of counts per microsecond.
-	//
-	// counter / ((load + 1) / 1000) scales from the systick clock to microseconds
-	// and is the same thing as (counter * 1000) / (load + 1)
-	return milliseconds * 1000 + (counter * 1000) / (load + 1);
-}
-#endif
 
 int32_t get_cart_position() {
-    return encoder4*18L; // microns, #ticks*(36 teeth * 0.002m pitch)/(1000 ticks/rev * 4x) gives meters, multiplying it by 10^6 we get microns
+  // handle eventual overflows in the encoder reading
+  capture4 = TIM4->CNT;
+  encoder4 += capture4 - capture4_prev;
+  if (labs(capture4 - capture4_prev) > 32767) {
+    encoder4 += (capture4 < capture4_prev ? 65535 : -65535);
+  }
+  capture4_prev = capture4;
+  return encoder4 * 18L; // microns, #ticks*(36 teeth * 0.002m pitch)/(1000 ticks/rev * 4x) gives meters, multiplying it by 10^6 we get microns
 }
 
 int32_t get_pendulum_angle() {
-    return (encoder3-4000)*45L; // millidegrees, #ticks * 360 / (2000 ticks/rev * 4x) gives degrees
+  // handle eventual overflows in the encoder reading
+  capture3 = TIM3->CNT;
+  encoder3 += capture3 - capture3_prev;
+  if (labs(capture3 - capture3_prev) > 32767) {
+    encoder3 += (capture3 < capture3_prev ? 65535 : -65535);
+  }
+  capture3_prev = capture3;
+  return (encoder3 - 4000) * 45L; // millidegrees, #ticks * 360 / (2000 ticks/rev * 4x) gives degrees
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   if (htim->Instance == TIM6) {
-    // handle eventual overflows in the encoder reading
-    capture4 = TIM4->CNT;
-    encoder4 += capture4 - capture4_prev;
-    if (labs(capture4 - capture4_prev) > 32767) {
-      encoder4 += (capture4 < capture4_prev ? 65535 : -65535);
-    }
-    capture4_prev = capture4;
-
-    capture3 = TIM3->CNT;
-    encoder3 += capture3 - capture3_prev;
-    if (labs(capture3 - capture3_prev) > 32767) {
-      encoder3 += (capture3 < capture3_prev ? 65535 : -65535);
-    }
-    capture3_prev = capture3;
-
     adc_accum = 0;
     for (uint16_t i = 0; i < ADC_BUF_SIZE; i++) {
       adc_accum += ADCReadings[i];
@@ -273,6 +220,10 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  if (DWT_Delay_Init())
+    while (1) {
+      __ASM volatile ("NOP");
+    }
 
   /* USER CODE END Init */
 
@@ -311,7 +262,18 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  while (0) {
+      char buff2[255] = "NOP\r\n";
+      HAL_UART_Transmit(&huart1, (uint8_t *) buff2, strlen(buff2), 3);
+    __ASM volatile ("NOP");
+  }
   while (1) {
+    if (system_task != 2) {
+      char buff2[255];
+      sprintf(buff2, "working ok, timestamp: %lu\r\n", dwt_micros());
+      HAL_UART_Transmit(&huart1, (uint8_t *) buff2, strlen(buff2), 3);
+    }
+
     cart_position_prev = cart_position;
     cart_position = get_cart_position();
     int32_t pendulum_angle = get_pendulum_angle();
@@ -321,7 +283,7 @@ int main(void)
     while (pendulum_angle < -180000) pendulum_angle += 360000;
 
     useconds_prev = useconds;
-    useconds = hal_ticks_us();
+    useconds = dwt_micros();
 
     float mesQ = pendulum_angle * 3.14159 / 180000.;  // radians
     float mesX = cart_position / 1000000.;          // meters
@@ -442,7 +404,7 @@ int main(void)
       sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, u, targetX, mesX, mesQ);
       HAL_UART_Transmit(&huart1, (uint8_t *) buff, strlen(buff), 3);
     }
-    while (hal_ticks_us() - useconds < 4900);
+    while (dwt_micros() - useconds < 4900);
   }
   /* USER CODE END 3 */
 
