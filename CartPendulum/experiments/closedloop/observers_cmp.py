@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-[time, U, targetX, X, Q] = np.loadtxt(sys.argv[1], delimiter=',', skiprows=1, unpack=True)
+[time, current, targetX, X, Q] = np.loadtxt(sys.argv[1], delimiter=',', skiprows=1, unpack=True)
 
 def blur(x):
     tmp = x[:]
@@ -23,11 +23,9 @@ def finite_difference(time, x, nblur):
 fdX = finite_difference(time, X[:], 10)
 fdQ = finite_difference(time, Q[:], 10)
 
-'''
 Ki = 9.268
 fricpos =  3.986*.8
 fricneg = -2.875*.8
-'''
 
 hatQ = Q[0]
 hatX = X[0]
@@ -50,9 +48,8 @@ for i in range(len(time)-1):
     mesX = X[i+1]
     cosQ = np.cos(mesQ)
     sinQ = np.sin(mesQ)
-    u = U[i+1]
+#    u = U[i+1]
 
-    '''   
     u = current[i+1]*Ki
     if X[i]!=X[i+1]:
         if X[i+1]>X[i]:
@@ -70,7 +67,6 @@ for i in range(len(time)-1):
                 u = u-fricneg
             else:
                 u = 0.
-    '''
 
     # PEBO observer
     A = 1./np.sqrt(731.775 - 152.361*cosQ*cosQ)
@@ -107,12 +103,12 @@ ax1 = fig.add_subplot(111)
 ax1.set_title("Pendulum run")
 ax1.set_xlabel('Time, sec')
 
-dt = [time[i+1]-time[i] for i in range(len(time)-1)]
-ax1.plot(time[1:], dt, color='black',  label='dt')
+#dt = [time[i+1]-time[i] for i in range(len(time)-1)]
+#ax1.plot(time[1:], dt, color='black',  label='dt')
 
-#ax1.plot(time[1:], fdX, color='black',  label='finite difference speed, m/s')
-#ax1.plot(time[1:], KKL_hatDX, color='red',     label='KKL, cart speed, m/s')
-#ax1.plot(time[1:], PEBO_hatDX, color='green',  label='GESO, cart speed, m/s')
+ax1.plot(time[1:], fdX, color='black',  label='finite difference speed, m/s')
+ax1.plot(time[1:], KKL_hatDX, color='red',     label='KKL, cart speed, m/s')
+ax1.plot(time[1:], PEBO_hatDX, color='green',  label='GESO, cart speed, m/s')
 
 #ax1.plot(time[1:], fdQ, color='black',  label='finite difference speed, rad/s')
 #ax1.plot(time[1:], KKL_hatDQ, color='magenta', label='KKL, pend speed, rad/s')

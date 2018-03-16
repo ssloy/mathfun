@@ -176,31 +176,34 @@ float get_current() {
   return (adc_accum - adc_zero_amps) / 4095.0 * 20.0;
 }
 
-/*
+
 // frequencies are given in mHz
-void chirp_current_open_loop(int16_t amplitude, int32_t start_freq, int32_t end_freq, int32_t duration_ms, FILE *uart_stream_ptr) {
-    fprintf_P(uart_stream_ptr, PSTR("time(us),reference current(mA),current(mA),cart position(um),pendulum angle(mdeg)\r\n"));
-    int32_t time_of_start, useconds;
-    useconds = time_of_start = get_current_time();
+void chirp_current_open_loop(float amplitude, float start_freq, float end_freq, uint32_t duration_ms) {
+  char buff[1024] = "time(s),reference current(A),current(A),cart position(m),pendulum angle(rad)\r\n";
+  HAL_UART_Transmit(&huart1, (uint8_t *) buff, strlen(buff), 3);
+  uint32_t time_of_start, useconds;
+  useconds = time_of_start = dwt_micros();
 
-    int32_t cart_position, pendulum_angle;
-    int16_t current_ref, current_measured;
-    while (useconds < time_of_start+duration_ms*1000L) {
-        useconds = get_current_time();
-        int32_t cur_ms = (useconds-time_of_start)/1000L;
-        int32_t phi = ((start_freq + ((end_freq-start_freq)*cur_ms)/(2L*duration_ms))*cur_ms)/1000L; // период синусоиды равен тысяче единиц phi
-        int32_t sine_idx = ((phi*512L)/1000L) & 0x1FF;
-        current_ref = (sine(sine_idx)*(int32_t)(amplitude))/255L;
-        current_measured = current(current_ref);
+  while (useconds < time_of_start + duration_ms * 1000L) {
+    useconds = dwt_micros();
+    float t = (useconds - time_of_start) * 0.000001;
+    float phi = (start_freq + (end_freq - start_freq) * (t*1000.) / (float) duration_ms) * t;
+    float current_ref = sin(2. * M_PI * phi) * amplitude;
+    set_current(current_ref);
 
-        cart_position = get_cart_position();
-        pendulum_angle = get_pendulum_angle();
+    float current_measured = get_current();
+    float mesQ = get_pendulum_angle() * 3.14159 / 180000.;  // radians
+    float mesX = get_cart_position() / 1000000.;          // meters
 
-        fprintf_P(uart_stream_ptr, PSTR("%ld,%d,%d,%ld,%ld\r\n"), useconds, current_ref, current_measured, cart_position, pendulum_angle);
-    }
-    current(0);
+    sprintf(buff, "%3.5f, %1.3f, %1.3f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, current_ref, current_measured, mesX, mesQ);
+    HAL_UART_Transmit(&huart1, (uint8_t *) buff, strlen(buff), 3);
+  }
+  set_current(0);
 }
-*/
+
+void stabilize(uint32_t duration_ms) {
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -262,6 +265,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (0) {
       char buff2[255] = "NOP\r\n";
       HAL_UART_Transmit(&huart1, (uint8_t *) buff2, strlen(buff2), 3);
@@ -273,6 +277,17 @@ int main(void)
       sprintf(buff2, "working ok, timestamp: %lu\r\n", dwt_micros());
       HAL_UART_Transmit(&huart1, (uint8_t *) buff2, strlen(buff2), 3);
     }
+    /*
+    if (system_task==1) {
+      HAL_Delay(2000);
+//      chirp_current_open_loop(2.5, 2., 9., 5000);
+      chirp_current_open_loop(1.5, 1., 5., 5000);
+      break;
+      system_task = 0;
+    }
+    continue;
+    */
+
 
     cart_position_prev = cart_position;
     cart_position = get_cart_position();
@@ -388,10 +403,8 @@ int main(void)
           f = 0;
       }
       float current_ref = (f + antifriction) / Ki;
-      if (current_ref > 3.3)
-        current_ref = 3.3;
-      if (current_ref < -3.3)
-        current_ref = -3.3;
+      if (current_ref >  3.) current_ref = 3.;
+      if (current_ref < -3.) current_ref = -3.;
 
       set_current(current_ref);
 
@@ -401,7 +414,7 @@ int main(void)
       }
 
       char buff[255] = { 0 };
-      sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, u, targetX, mesX, mesQ);
+      sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, current_ref, targetX, mesX, mesQ);
       HAL_UART_Transmit(&huart1, (uint8_t *) buff, strlen(buff), 3);
     }
     while (dwt_micros() - useconds < 4900);
