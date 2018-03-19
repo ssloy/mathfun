@@ -15,3 +15,5 @@ trigsimp(T),qb=0,wb=0;
 # этот лагранжиан выписан для случая заблокированного шарнира qb=0
 L:1/2*(Jd*wd^2 + (Ic+Id)*wc^2 + (Ka+Jc+Jd+Kb - (Jc+Jd-Kc-Id)*cos(qc)^2)*wa^2) + Jd*wd*wa*sin(qc);
 
+
+

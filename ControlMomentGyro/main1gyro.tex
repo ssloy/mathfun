@@ -126,31 +126,33 @@ $$
 
 Для удобства выпишем все частные производные:
 \begin{align*}
-\frac{\partial\mathcal L}{\partial\omega_d} &=  J_d \omega_d + J_d \sin(q_c) \omega_a \\
-\frac{\partial\mathcal L}{\partial q_d} & =  0\\
-\frac{\partial\mathcal L}{\partial\omega_c} &= (I_d+I_c)\omega_c \\
-\frac{\partial\mathcal L}{\partial q_c} &= J_d \cos(q_c) \omega_a \omega_d + \frac{1}{2}J_1  \sin(2 q_c) \omega_a^2  \\
-\frac{\partial\mathcal L}{\partial\omega_a}  &= \left(J_2 - J_1 \cos^2(q_c)\right) \omega_a  + J_d \sin(q_c) \omega_d \\
-\frac{\partial\mathcal L}{\partial q_a}   &= 0\\
+\frac{\partial\mathcal L}{\partial\omega_d} &=  J_d \omega_d + J_d \sin(q_c) \omega_a & \frac{\partial\mathcal L}{\partial q_d} & =  0\\
+\frac{\partial\mathcal L}{\partial\omega_c} &= (I_d+I_c)\omega_c                      & \frac{\partial\mathcal L}{\partial q_c} &= J_d \cos(q_c) \omega_a \omega_d + \frac{1}{2}J_1  \sin(2 q_c) \omega_a^2  \\
+\frac{\partial\mathcal L}{\partial\omega_a} &= \left(J_2 - J_1 \cos^2(q_c)\right) \omega_a  + J_d \sin(q_c) \omega_d  & \frac{\partial\mathcal L}{\partial q_a}   &= 0\\
 \end{align*}
 
-Приложим моменты $\tau_d$ и $\tau_c$ в соответствующих шарнирах, тогда уравнения движения примут следующий вид:
+Если приложить моменты $\tau_d$ и $\tau_c$ в соответствующих шарнирах, тогда уравнения движения примут следующий вид:
 \begin{align*}
  J_d \dot\omega_d + J_d \sin(q_c)\dot \omega_a + J_d \cos(q_c)\omega_c\omega_a &=\tau_d\\
 (I_d+I_c)\dot\omega_c - J_d \cos(q_c) \omega_a \omega_d - \frac{1}{2}J_1  \sin(2 q_c) \omega_a^2  &= \tau_c \\
-\left(J_2 - J_1 \cos^2(q_c)\right)\dot \omega_a - J_1 \sin(2 q_c)\omega_c\omega_a +  J_d \sin(q_c) \dot\omega_d + J_d \cos(q_c) \omega_c\omega_d &= 0\\
+\left(J_2 - J_1 \cos^2(q_c)\right)\dot \omega_a + J_1 \sin(2 q_c)\omega_c\omega_a +  J_d \sin(q_c) \dot\omega_d + J_d \cos(q_c) \omega_c\omega_d &= 0\\
 \end{align*}
 
-{\color{red}Внимание, последнее уравнение отличается знаком второго слагаемого от уравнения (3.5) в вышеприведённой статье! Проверить.}
-
+Эти уравнения опять-таки совпадают с процитированной ранее статьёй (ну, за исключением трения в шарнире рамки $A$).
 Положим скорость вращения диска $D$ постоянной ($\dot\omega_d=0$), таким образом, у нас остаётся две степени свободы: $q_c$ и $q_a$.
 Приведём уравнения к каноническому виду:
-%
-%\begin{align*}
-%\dot\omega_c = \frac{\tau_c + J_d \cos(q_c) \omega_a \omega_d + \frac{1}{2}J_1  \sin(2 q_c) \omega_a^2}{I_d+I_c}   \\
-%\left(J_2 - J_1 \cos^2(q_c) - J_d\sin^2(q_c)\right)\dot \omega_a - J_1 \sin(2 q_c)\omega_c\omega_a +  J_d\sin(q_c)(\tau_d/J_d -  \cos(q_c)\omega_c\omega_a) + J_d \cos(q_c) \omega_c\omega_d &= 0
-%\end{align*}
 
+$$
+\left\{\begin{array}{rl}
+\dot q_a &= \omega_a \\
+\dot q_c &= \omega_c \\
+\dot\omega_c &= \frac{\tau_c + J_d \cos(q_c) \omega_a \omega_d + \frac{1}{2}J_1  \sin(2 q_c) \omega_a^2}{I_d+I_c} \\
+\dot\omega_a &= \frac{- J_1 \sin(2 q_c)\omega_c\omega_a - J_d \cos(q_c) \omega_c\omega_d}{J_2 - J_1 \cos^2(q_c)} \\
+\end{array}\right.
+$$
+
+Глядя на уравнения, я предчувствую, что стартуя из состояния $q_a(0)=\omega_a(0)=\omega_c(0)=0$, $q_c(0)=\pi/2$, то какой бы ни был знак прикладываемого момента $\tau_c$,
+рамка $A$ будет ускоряться в одну и ту же сторону.
 
 
 \end{document}
