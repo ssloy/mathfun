@@ -1,17 +1,17 @@
-Rna:matrix([cos(q4),sin(q4),0],[-sin(q4),cos(q4),0],[0,0,1]);
-Rab:matrix([cos(q3),0,-sin(q3)],[0,1,0],[sin(q3),0,cos(q3)]);
-Rbc:matrix([1,0,0],[0,cos(q2),sin(q2)],[0,-sin(q2),cos(q2)]);
-Rcd:matrix([cos(q1),0,-sin(q1)],[0,1,0],[sin(q1),0,cos(q1)]);
+Rna:matrix([cos(qa),sin(qa),0],[-sin(qa),cos(qa),0],[0,0,1]);
+Rab:matrix([cos(qb),0,-sin(qb)],[0,1,0],[sin(qb),0,cos(qb)]);
+Rbc:matrix([1,0,0],[0,cos(qc),sin(qc)],[0,-sin(qc),cos(qc)]);
+Rcd:matrix([cos(qd),0,-sin(qd)],[0,1,0],[sin(qd),0,cos(qd)]);
 
-Wdn:matrix([0],[w1],[0]) + Rcd.matrix([w2],[0],[0]) + Rcd.Rbc.matrix([0],[w3],[0]) + Rcd.Rbc.Rab.Rna.matrix([0],[0],[w4]);
-Wcn:                           matrix([w2],[0],[0]) +     Rbc.matrix([0],[w3],[0]) +     Rbc.Rab.Rna.matrix([0],[0],[w4]);
-Wbn:                                                          matrix([0],[w3],[0]) +         Rab.Rna.matrix([0],[0],[w4]);
-Wan:                                                                                             Rna.matrix([0],[0],[w4]);
+Wdn:matrix([0],[wd],[0]) + Rcd.matrix([wc],[0],[0]) + Rcd.Rbc.matrix([0],[wb],[0]) + Rcd.Rbc.Rab.Rna.matrix([0],[0],[wa]);
+Wcn:                           matrix([wc],[0],[0]) +     Rbc.matrix([0],[wb],[0]) +     Rbc.Rab.Rna.matrix([0],[0],[wa]);
+Wbn:                                                          matrix([0],[wb],[0]) +         Rab.Rna.matrix([0],[0],[wa]);
+Wan:                                                                                             Rna.matrix([0],[0],[wa]);
 
 T:transpose(Wdn).matrix([Id,0,0],[0,Jd,0],[0,0,Id]).Wdn/2 + transpose(Wcn).matrix([Ic,0,0],[0,Jc,0],[0,0,Kc]).Wcn/2 + transpose(Wbn).matrix([Ib,0,0],[0,Jb,0],[0,0,Kb]).Wbn/2 + transpose(Wan).matrix([Ia,0,0],[0,Ja,0],[0,0,Ka]).Wan/2;
-trigsimp(E),q3=0,w3=0;
+trigsimp(T),qb=0,wb=0;
 
 # Explicit solution of the ODEs describing the 3 DOF Control Moment Gyroscope
-# этот лагранжиан выписан для случая заблокированного шарнира q3=0
-L:1/2*(Jd*w1^2 + (Ic+Id)*w2^2 + (Ka+Jc+Jd+Kb - (Jc+Jd-Kc-Id)*cos(q2)^2)*w4^2) + Jd*w1*w4*sin(q2);
+# этот лагранжиан выписан для случая заблокированного шарнира qb=0
+L:1/2*(Jd*wd^2 + (Ic+Id)*wc^2 + (Ka+Jc+Jd+Kb - (Jc+Jd-Kc-Id)*cos(qc)^2)*wa^2) + Jd*wd*wa*sin(qc);
 
