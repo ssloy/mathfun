@@ -27,7 +27,7 @@
 \maketitle
 
 \section{Симметричный гиродин}
-\subsection{Вводная и способ вывода Лагранжиана}
+\subsection{Вывод лагранжиана}
 
 \begin{figure}[!ht]
 \centering
@@ -77,45 +77,47 @@ R_{cd} = \begin{bmatrix}
 \end{bmatrix}
 $$
 
+При помощи этих матриц вращения можно выписать полные (векторные) угловые скорости всех четырёх тел $\vec\omega_{an}$, $\vec\omega_{bn}$, $\vec\omega_{cn}$ и $\vec\omega_{dn}$.
+Эти скорости мы выпишем в координатах соответствующих ``вмороженных'' реперов. Они находятся как (векторные) суммы частичных угловых скоростей следующим образом:
+$$
+\begin{array}{rrrrl}
+\vec \omega_{an} := &                   R_{na}\begin{bmatrix}0\\0\\\omega_a\end{bmatrix} &&&\\
+\vec \omega_{bn} := &             R_{ab}R_{na}\begin{bmatrix}0\\0\\\omega_a\end{bmatrix} &+             \begin{bmatrix}0\\\omega_b\\0\end{bmatrix} & &\\
+\vec \omega_{cn} := &       R_{bc}R_{ab}R_{na}\begin{bmatrix}0\\0\\\omega_a\end{bmatrix} &+       R_{bc}\begin{bmatrix}0\\\omega_b\\0\end{bmatrix} &+ \begin{bmatrix}\omega_c\\0\\0\end{bmatrix}&\\
+\vec \omega_{dn} := & R_{cd}R_{bc}R_{ab}R_{na}\begin{bmatrix}0\\0\\\omega_a\end{bmatrix} &+ R_{cd}R_{bc}\begin{bmatrix}0\\\omega_b\\0\end{bmatrix} &+ R_{cd}\begin{bmatrix}\omega_c\\0\\0\end{bmatrix} &+ \begin{bmatrix}\omega_d\\0\\0\end{bmatrix}\\
+\end{array}
+$$
+
 Определим скаляры $I_x,J_x,K_x~(x=a,b,c,d)$ как моменты инерции при вращении вокруг оси $k$ каждого тела соответственно.
 Из-за симметрии рамок произведение моментов не рассматриваем, поэтому матрицы инерции будут диагональными.
-Тогда кинетическая энергия рамки $A$ может быть записана как:
-$$
-T_a = \frac{1}{2}\vec\omega_{an}^\top \begin{bmatrix}I_a&0&0\\0&J_a&0\\0&0&K_a\end{bmatrix}\vec\omega_{an},\hspace{1cm}
-\vec \omega_{an} := R_{na}\begin{bmatrix}0\\0\\\omega_a\end{bmatrix},
-$$
-где $\omega_a$ - это угловая скорость вращения рамки $A$ относительно неподвижной системы координат.
-Аналогично определяются и кинетические энергии оставшихся трёх тел:
+Тогда кинетическая энергия каждой из четырёх рамок может быть записана как:
 \begin{align*}
+T_a = \frac{1}{2}\vec\omega_{an}^\top \begin{bmatrix}I_a&0&0\\0&J_a&0\\0&0&K_a\end{bmatrix}\vec\omega_{an},\\
 T_b = \frac{1}{2}\vec\omega_{bn}^\top \begin{bmatrix}I_b&0&0\\0&J_b&0\\0&0&K_b\end{bmatrix}\vec\omega_{bn},\\
 T_c = \frac{1}{2}\vec\omega_{cn}^\top \begin{bmatrix}I_c&0&0\\0&J_c&0\\0&0&K_c\end{bmatrix}\vec\omega_{cn},\\
 T_d = \frac{1}{2}\vec\omega_{dn}^\top \begin{bmatrix}I_d&0&0\\0&J_d&0\\0&0&K_d\end{bmatrix}\vec\omega_{dn}, 
 \end{align*}
-где полные (векторные) угловые скорости $\vec\omega_{bn}$, $\vec\omega_{cn}$ и $\vec\omega_{dn}$ определяются как (векторные) суммы частичных угловых скоростей следующим образом:
-$$
-\begin{array}{rrrrl}
-\vec \omega_{bn}  := &             R_{ab}R_{na}\begin{bmatrix}0\\0\\\omega_a\end{bmatrix} &+             \begin{bmatrix}0\\\omega_b\\0\end{bmatrix} & &\\
-\vec \omega_{cn}  := &       R_{bc}R_{ab}R_{na}\begin{bmatrix}0\\0\\\omega_a\end{bmatrix} &+       R_{bc}\begin{bmatrix}0\\\omega_b\\0\end{bmatrix} &+ \begin{bmatrix}\omega_c\\0\\0\end{bmatrix}&\\
-\vec \omega_{dn}  := & R_{cd}R_{bc}R_{ab}R_{na}\begin{bmatrix}0\\0\\\omega_a\end{bmatrix} &+ R_{cd}R_{bc}\begin{bmatrix}0\\\omega_b\\0\end{bmatrix} &+ R_{cd}\begin{bmatrix}\omega_c\\0\\0\end{bmatrix} &+ \begin{bmatrix}\omega_d\\0\\0\end{bmatrix}\\
-\end{array}
-$$
 
-Таким образом, в отсутствие силы тяжести, Лагранжиан будет равен просто кинетической энергии:
+Таким образом, в отсутствие силы тяжести, лагранжиан будет равен просто кинетической энергии:
 
 $$
-L = T_a + T_b + T_c + T_b.
+\mathcal L = T_a + T_b + T_c + T_b.
 $$
 
-\subsection{Зафиксируем один шарнир}
+В итоге вот так должен выглядеть явно выписанный лагранжиан нашей системы (я использовал симметрию диска $K_d=I_d$):
+\begin{align*}
+\mathcal L & = \frac{1}{2} J_d \omega_d^2 + J_d\left(\cos(q_c)\omega_b+\cos(q_b)\sin(q_c)\omega_a\right)\omega_d+
+  \frac{1}{2}\left(I_d+I_c\right)\left(\omega_c^2-2\sin(q_b)\omega_a\omega_c\right)+\\
+  & + \frac{1}{2}\left(J_1\cos^2(q_c)+K_c +J_b+I_d\right)\omega_b^2+ \frac{1}{2}J_1\cos(q_b)\sin(2 q_c)\omega_a\omega_b+\\
+  & + \frac{1}{2}\left(J_2-J_1\cos^2(q_b)\cos^2(q_c)+\left(I_d+ I_c+I_b-K_b-J_d- J_c\right)\sin^2(q_b)\right)\omega_a^2
+\end{align*}
 
-Например, выпишем его явно при зафиксированном угле $q_b=\omega_b=0$ (я ещё использовал симметрию диска $K_d=I_d$):
-$$
-L=\frac{1}{2}J_d \omega_d^2 + \frac{1}{2}(I_c+I_d) \omega_c^2 + \frac{1}{2}\left(K_a+J_c+J_d+K_b - (J_c+J_d-K_c-I_d) \cos^2(q_c)\right) \omega_a^2 + J_d \sin(q_c) \omega_d \omega_a
-$$
+\subsection{Зафиксируем один шарнир: $q_b=0$}
 
+Выпишем лагранжиан при зафиксированном угле $q_b=\omega_b=0$.
 Обозначим для удобства $J_1:=J_c+J_d-K_c-I_d$ и $J_2:=K_a+J_c+J_d+K_b$, тогда лагранжиан будет выглядеть так:
 $$
-L=\frac{1}{2}J_d \omega_d^2 + \frac{1}{2}(I_c+I_d) \omega_c^2 + \frac{1}{2}\left(J_2 - J_1 \cos^2(q_c)\right) \omega_a^2 + J_d \sin(q_c) \omega_d \omega_a
+\mathcal L=\frac{1}{2}J_d \omega_d^2 + \frac{1}{2}(I_c+I_d) \omega_c^2 + \frac{1}{2}\left(J_2 - J_1 \cos^2(q_c)\right) \omega_a^2 + J_d \sin(q_c) \omega_d \omega_a
 $$
 
 
