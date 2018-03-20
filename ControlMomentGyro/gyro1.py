@@ -40,7 +40,7 @@ def predict(time, current):
     return np.transpose(sol)
 
 time = np.linspace(0,10,3000)
-current = [0.01 for t in time]
+current = [-0.01 for t in time]
 
 fig = plt.figure()
 ax1 = fig.add_subplot(111)
