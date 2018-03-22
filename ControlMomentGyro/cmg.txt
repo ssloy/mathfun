@@ -1,19 +1,19 @@
-Rna:matrix([cos(qa),sin(qa),0],[-sin(qa),cos(qa),0],[0,0,1]);
-Rab:matrix([cos(qb),0,-sin(qb)],[0,1,0],[sin(qb),0,cos(qb)]);
-Rbc:matrix([1,0,0],[0,cos(qc),sin(qc)],[0,-sin(qc),cos(qc)]);
-Rcd:matrix([cos(qd),0,-sin(qd)],[0,1,0],[sin(qd),0,cos(qd)]);
+Rna:matrix([cos(qa(t)),sin(qa(t)),0],[-sin(qa(t)),cos(qa(t)),0],[0,0,1]);
+Rab:matrix([cos(qb(t)),0,-sin(qb(t))],[0,1,0],[sin(qb(t)),0,cos(qb(t))]);
+Rbc:matrix([1,0,0],[0,cos(qc(t)),sin(qc(t))],[0,-sin(qc(t)),cos(qc(t))]);
+Rcd:matrix([cos(qd(t)),0,-sin(qd(t))],[0,1,0],[sin(qd(t)),0,cos(qd(t))]);
 
-Wdn:matrix([0],[wd],[0]) + Rcd.matrix([wc],[0],[0]) + Rcd.Rbc.matrix([0],[wb],[0]) + Rcd.Rbc.Rab.Rna.matrix([0],[0],[wa]);
-Wcn:                           matrix([wc],[0],[0]) +     Rbc.matrix([0],[wb],[0]) +     Rbc.Rab.Rna.matrix([0],[0],[wa]);
-Wbn:                                                          matrix([0],[wb],[0]) +         Rab.Rna.matrix([0],[0],[wa]);
-Wan:                                                                                             Rna.matrix([0],[0],[wa]);
+wdn:matrix([0],[diff(qd(t),t)],[0]) + Rcd.matrix([diff(qc(t),t)],[0],[0]) + Rcd.Rbc.matrix([0],[diff(qb(t),t)],[0]) + Rcd.Rbc.Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
+wcn:                           matrix([diff(qc(t),t)],[0],[0]) +     Rbc.matrix([0],[diff(qb(t),t)],[0]) +     Rbc.Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
+wbn:                                                          matrix([0],[diff(qb(t),t)],[0]) +         Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
+wan:                                                                                             Rna.matrix([0],[0],[diff(qa(t),t)]);
 
-T:transpose(Wdn).matrix([Id,0,0],[0,Jd,0],[0,0,Id]).Wdn/2 + transpose(Wcn).matrix([Ic,0,0],[0,Jc,0],[0,0,Kc]).Wcn/2 + transpose(Wbn).matrix([Ib,0,0],[0,Jb,0],[0,0,Kb]).Wbn/2 + transpose(Wan).matrix([Ia,0,0],[0,Ja,0],[0,0,Ka]).Wan/2;
-trigsimp(T),qb=0,wb=0;
+T:transpose(wdn).matrix([Id,0,0],[0,Jd,0],[0,0,Id]).wdn/2 + transpose(wcn).matrix([Ic,0,0],[0,Jc,0],[0,0,Kc]).wcn/2 + transpose(wbn).matrix([Ib,0,0],[0,Jb,0],[0,0,Kb]).wbn/2 + transpose(wan).matrix([Ia,0,0],[0,Ja,0],[0,0,Ka]).wan/2;
+trigsimp(T),qb(t)=0,diff(qb(t),t)=0;
 
 # Explicit solution of the ODEs describing the 3 DOF Control Moment Gyroscope
-# этот лагранжиан выписан для случая заблокированного шарнира qb=0
-L:1/2*(Jd*wd^2 + (Ic+Id)*wc^2 + (Ka+Jc+Jd+Kb - (Jc+Jd-Kc-Id)*cos(qc)^2)*wa^2) + Jd*wd*wa*sin(qc);
+# этот лагранжиан выписан для случая заблокированного шарнира qb(t)=0
+L:1/2*(Jd*diff(qd(t),t)^2 + (Ic+Id)*diff(qc(t),t)^2 + (Ka+Jc+Jd+Kb - (Jc+Jd-Kc-Id)*cos(qc(t))^2)*diff(qa(t),t)^2) + Jd*diff(qd(t),t)*diff(qa(t),t)*sin(qc(t));
 
 
 
