@@ -38,6 +38,9 @@ for r in np.arange(0., .2, 0.001):
     A = np.matrix([[0.,1.,0.],[ml*g/J, 0., k**2/(J*R)],[-ml*g/J, 0., -(J+Jr)/(J*Jr)*k**2/R]])
     B = np.matrix([[0.],[-k/(J*R)],[(J+Jr)/(J*Jr)*k/R]])
     [eigenvalues, eigenvectors] = np.linalg.eig(A)
+    assert eigenvalues[0]>0 and eigenvalues[1]<0 and eigenvalues[2]<0, "Houston we've got a problem"
+
+
     V = np.matrix(eigenvectors)
     ymax = (V.I*B).item(0,0)*U/eigenvalues[0]
     xmax = np.abs(ymax/V.I.item(0,0))
@@ -59,6 +62,15 @@ ax1.plot(gr,gx)
 plt.show()
 
 
+lr = .5
+r = 0.057 # disk radius
+v = 0.020*np.pi*r*r # volume
+mr = v*2698.9
+Jr = 0.0000181 + mr*r*r/2
+
+J = Jp + mp*lp*lp + mr*lr*lr
+ml = mp*lp + mr*lr
+
 
 A = np.matrix([[0.,1.,0.],[ml*g/J, 0., k**2/(J*R)],[-ml*g/J, 0., -(J+Jr)/(J*Jr)*k**2/R]])
 B = np.matrix([[0.],[-k/(J*R)],[(J+Jr)/(J*Jr)*k/R]])
@@ -77,7 +89,7 @@ ax1 = fig.add_subplot(111)
 ax1.set_title("Pendulum dynamics")
 ax1.set_xlabel('Time, sec')
 
-x0 = np.matrix([0.24, 0., 0.]).transpose() # theta thetadot
+x0 = np.matrix([0.2430166, 0., 0.]).transpose() # theta thetadot
 time = np.linspace(0, 2, 2000)
 simu = integrate(x0, time)
 ax1.plot(time, simu[0,:], label='angle, rad')
