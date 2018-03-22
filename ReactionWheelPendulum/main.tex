@@ -136,14 +136,14 @@ $$
 $$
 \left\{
 \begin{array}{l}
-\ddot\theta_r = \frac{J+J_r}{J J_r}(kI - C_r\dot\theta_r)  -mlg/J\sin\theta + C_p/J\dot\theta\\
-\ddot \theta  = -k/J I + mlg/J\sin\theta - C_p/J \dot\theta + C_r/J \dot\theta_r\\
-\dot I  = U/L - R/LI - k/L \dot\theta_r\\
+\ddot\theta_r = \frac{J+J_r}{J J_r}(kI - C_r\dot\theta_r)  -\frac{mlg}{J}\sin\theta + \frac{C_p}{J}\dot\theta\\
+\ddot \theta  = -\frac{k}{J} I + \frac{mlg}{J}\sin\theta - \frac{C_p}{J} \dot\theta + \frac{C_r}{J} \dot\theta_r\\
+\dot I  = \frac{U}{L} - \frac{R}{L}I - \frac{k}{L} \dot\theta_r\\
 \end{array}
 \right.
 $$
 
-Для грубой прикидки размера маховика будем пренебрегать всяким. Индуктивность обмоток мотора очень низкая, поэтому можно сказать, что $I=U/R-K/R\,\dot\theta_r$. Вязкие трения тоже убираем, $C_r=C_P=0$. 
+Для грубой прикидки размера маховика будем пренебрегать всяким. Индуктивность обмоток мотора очень низкая, поэтому можно сказать, что $I=\frac{U}{R}-\frac{K}{R}\,\dot\theta_r$. Вязкие трения тоже убираем, $C_r=C_p=0$. 
 Рабочая зона наверняка будет узкой, поэтому заменим синус напрямую на его аргумент. Мысль такая: если будет стабилизироваться линеаризованная модель, то с синусом и подавно маятник встанет. Тогда уравнения движения будут выглядеть следующим образом:
 $$
 \left\{
