@@ -94,13 +94,14 @@ $$
 
 Напоминалка про уравнения Лагранжа:
 $$
-\frac{d}{dt}\left(\frac{\partial\mathcal L}{\partial\dot q_i}\right) - \frac{\partial\mathcal L}{\partial q_i} = \tau_i
+\frac{d}{dt}\left(\frac{\partial\mathcal L}{\partial\dot q_i}\right) - \frac{\partial\mathcal L}{\partial q_i} = \tau_i,
 $$
+где $q$ это обобщённая координата. В нашем случае мы выбираем $q:=(\theta_r, \theta)^\top$.
 
 Тогда уравнения движения примут следующий вид:
 \begin{align*}
-J_r\ddot\theta_r + J_r\ddot\theta&= - C_r \dot\theta_r + \tau\\
-(J+J_r)\ddot \theta + J_r\ddot\theta_r - mlg\sin\theta &= - C_p \dot\theta 
+J_r\ddot\theta_r + J_r\ddot\theta&= - C_r \dot\theta_r + \tau,\\
+(J+J_r)\ddot \theta + J_r\ddot\theta_r - mlg\sin\theta &= - C_p \dot\theta.
 \end{align*}
 
 Перепишем, оставив вторые производные слева:
@@ -113,7 +114,20 @@ $$
 \right.
 $$
 
-
+Или перепишем в матричной форме:
+\[
+	M\ddot{q} + G(q) =\mathcal{T}(\dot{q},\tau),
+\]
+где
+\[
+	M := \begin{bmatrix} J_r & J_r \\
+						 J_r & J_r+J
+		 \end{bmatrix},
+	\;
+	G(q): = \begin{bmatrix} 0 \\ -mlg \sin(q_2) \end{bmatrix},
+	\;
+	\mathcal{T}(\dot{q},\tau) := \begin{bmatrix} - C_r \dot\theta_r + \tau \\ - C_p \dot\theta \end{bmatrix}.
+\]
 
 Наверняка трение в маятнике будет существенно ниже трения в роторе, и вполне возможно, что при этом пренебречь можно будет обоими. 
 
@@ -217,6 +231,7 @@ $$
 \label{fig:rwdiameter}
 \end{figure}
 %Получается, что чем меньше маховик, тем легче стабилизировать (меньше массы поднимать), при этом быстрый подъём противо-ЭДС никого не волнует, системе выгоднее дать короткий, но сильный импульс. В таких условиях мне кажется наиболее разумным выбор маховика диаметром эдак сантиметров 10 (это уже полкило, если что).
+
 
 \iffalse
 
