@@ -41,14 +41,21 @@ def derivative(parameters, state):
     R  = parameters['R']
     U  = parameters['U']
     [theta, dtheta, dthetar] = state
-    return [dtheta, -k*U/(J*R)+k**2/(J*R)*dthetar + ml*g/J*np.sin(theta), (J+Jr)/(J*Jr)*(k*U/R - k**2/R*dthetar) - ml*g/J*theta]
+    return np.array([dtheta, -k*U/(J*R)+k**2/(J*R)*dthetar + ml*g/J*np.sin(theta), (J+Jr)/(J*Jr)*(k*U/R - k**2/R*dthetar) - ml*g/J*theta])
 
 def simulate_nonlinear(parameters, x0, time):
     synthetic = [x0.copy().transpose().tolist()[0]]
     xi = synthetic[-1][:]
     for i in range(len(time)-1):
-        d = derivative(parameters, xi)
-        xi = [sum(x) for x in zip(xi, [a*(time[i+1]-time[i]) for a in d])]
+        h = time[i+1]-time[i]
+        k1 = derivative(parameters, xi)*h
+        k2 = derivative(parameters, xi+k1/2.)*h
+        k3 = derivative(parameters, xi+k2/2.)*h
+        k4 = derivative(parameters, xi+k3)*h
+        xi = xi+k1/6.+k2/3.+k3/3.+k4/6.
+
+#        d = derivative(parameters, xi)
+#        xi = [sum(x) for x in zip(xi, [a*(time[i+1]-time[i]) for a in d])]
         synthetic.append(xi[:])
     return np.transpose(synthetic)
 
