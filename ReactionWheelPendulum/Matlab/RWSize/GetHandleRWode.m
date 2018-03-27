@@ -1,4 +1,4 @@
-function funHandle = GetHandleRWode(params)
+function funHandle = GetHandleRWode(params, linFlag)
 %RWODE Compute the derivatives
 
 
@@ -29,7 +29,12 @@ function funHandle = GetHandleRWode(params)
         dq=x(3:4); %(dot{theta}, dot{theta_r})
         
         % the state-dependednt matrix G
-        G = [0; -mlg*sin(q(2))];
+        % this one can be linear or nonliner
+        if linFlag
+             G = [0; -mlg*q(2)]; %sin(q2) is replaced with q2
+        else
+            G = [0; -mlg*sin(q(2))];
+        end
         
         % the second derivative is 
         d2q = M\(-G-C*dq+T);

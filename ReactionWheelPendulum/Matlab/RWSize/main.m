@@ -16,6 +16,8 @@ Cr=0; % friction
 rArray=0:0.001:0.2;
 
 %% get the output
+MODEL_TYPE = 0; % 1 for linear and 0 for nonliner
+
 angleArray=zeros(size(rArray));
 for i=1:length(rArray)
     
@@ -32,8 +34,8 @@ for i=1:length(rArray)
     % construct the array of parameters
     params = [J, Jr, Cp, Cr, R, k, Umax, ml*g]; 
 
-    % get the ode function handle
-    odefun = GetHandleRWode(params);
+    % get the ode function handle. 
+    odefun = GetHandleRWode(params,MODEL_TYPE);
 
     % get the Flag function handle
     flagfun = @(x0) CheckIfCanTouchZero(odefun,x0);
