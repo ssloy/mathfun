@@ -19,6 +19,8 @@
 \DeclarePairedDelimiter{\diagfences}{(}{)}
 \newcommand{\diag}{\operatorname{diag}\diagfences}
 
+\newcommand{\sign}{\operatorname{sign}}
+\DeclarePairedDelimiter{\homd}{\lceil}{\rfloor}
 
 \title{Reaction wheel 1D pendulum}
 \author{}
@@ -318,4 +320,119 @@ $$
 
 \fi
 
+\section{Стабилизация}
+
+\subsection{Контур тока}
+У нас есть хороший усилитель и быстрый контур тока. Так что мы можем считать, что управляем моментом напрямую и компенсируем противо-ЭДС. Тогда в модели системы мы положим $\tau=kI$ и будем считать, что $I$ это наш сигнал управления.  
+\subsection{LQR}
+Линеаризованная модель с контуром тока имеет вид
+\[
+	\dot{X} = A X + B I,
+\]
+где, пренебрегая вязким трением,
+\[
+X = \begin{pmatrix}\theta \\ \dot\theta \\ \dot\theta_r \end{pmatrix},
+\qquad 
+A= \begin{pmatrix} 0 & 1 & 0 \\ \frac{mlg}{J} & 0 & 0 \\ -\frac{mlg}{J} & 0 & 0 \end{pmatrix},
+\qquad 
+B=\begin{pmatrix}0\\ -\frac{k}{J} \\ \frac{(J+J_r)k}{J\,J_r} \end{pmatrix}.
+\]
+
+Сюда надо будет добавить построение LQR для стабилизации.
+
+
+\section{Оценка скоростей (гомогенный дифференциатор)}
+\subsection{Общий вид}
+Вообще гомогенный дифференциатор строится для системы следующего вида:
+\begin{equation} \label{eq:canonical}
+	\begin{aligned}
+		\dot{x}_1 &= x_2 + f_1(y,u), \\
+		\dot{x}_2 &= x_3 + f_2(y,u), \\		
+		&\vdots \\
+		\dot{x}_n &= f_n(y,u,t), \\
+		y &= x_1,
+	\end{aligned}
+\end{equation}
+где функции $f_i(y,u)$ известны. Пусть $e:=\hat{x}-x$, тогда $e_1$ измеряется. Дифференциатор имеет вид
+\[
+	\begin{aligned}
+		\dot{\hat{x}}_1 &= \hat{x}_2 + f_1(y,u) + \chi_1(e_1), \\
+		\dot{\hat{x}}_2 &= \hat{x}_3 + f_2(y,u) + \chi_2(e_1), \\
+		&\vdots\\
+		\dot{\hat{x}}_n &= f_n(y,u) + \chi_n(e_1),
+	\end{aligned}
+\]
+где 
+\[
+	\chi_i(e_1) = -k_i \homd{e_1}^{\alpha_i} = -k_i |e_1|^{\alpha_i}\sign(e_1).
+\]
+Параметры $\alpha_i$ выбираются как
+\[
+	\begin{aligned}
+		\alpha_1 &= \alpha \in \left(\frac{n-1}{n}, 1\right), \\
+		\alpha_2 &= 2\alpha - 1,\\ 
+		\alpha_n &= n\alpha - (n-1).
+	\end{aligned}
+\] 
+Параметры $k_i$ выбираются так, чтобы полином $p^n+k_1p^{n-1}+\ldots + k_{n-1}p+k_n$ был Гурвицев (действительная часть всех корней строго меньше нуля). 
+
+Тогда для ошибки оценивания справедливо
+\[
+	\begin{aligned}
+		\dot{e}_1 &= e_2 - k_1\homd{e_1}^{\alpha}, \\
+		\dot{e}_2 &= e_3 - k_2\homd{e_1}^{2\alpha-1}, \\		
+		& \vdots \\
+		\dot{e}_n &= - k_n\homd{e_1}^{n\alpha-(n-1)}, \\		
+	\end{aligned}
+\]
+и можно показать, что ошибка оценивания сходится к нулю за конечное время. 
+
+Отметим, что, в отличие от KKL или GESO, дифференциатор строится для скалярных моделей. Он менее завязан на модель и более ориентирован на концепцию перeменной, изменяющейся с некоторой скоростью, то есть именно на дифференцирование, а не на оценивание импульсов, например. Это видно из модели \eqref{eq:canonical}, которая сама является почти что цепочкой интеграторов и приводит к цепочке интеграторов для модели ошибки. Сигнал ошибки $e_1$ также скалярный, и нужно строить отдельный дифференциатор по каждой степени свободы, а не для всей модели сразу. С другой стороны, такой подход оказывается менее чувствительным с точки зрения ошибок модели. И в этом смысле он ближе к (так называемым model-free) HGO или SMO, чем к model-based GESO.
+
+
+\subsection{Дифференциатор для маятника}
+Нужно привести модель маятника к каноническому виду \eqref{eq:canonical} для каждой степени свободы. Начнём с самого маятника. С учётом контура тока запишем
+\[
+	\ddot{\theta} = f_p(\theta,I) + \tilde{f}_p,
+\]
+где 
+\[
+	\begin{aligned}
+		f_p(\theta,I) &= -\frac{K}{J}I + \frac{mlg}{J}\sin(\theta), \\ 
+		\tilde{f}_p &= -\frac{C_p}{J}\dot{\theta} + \frac{C_p}{J}\dot{\theta}_r. 	
+	\end{aligned}
+\]
+Здесь $f_\theta(\theta,I)$ это то, что мы более-менее знаем и можем воспроизвести, а $\tilde{f}_\theta$ это то, чего мы не знаем или не измеряем. Также в последнее можно включить ошибки в оценивании параметров. 
+
+Для маховика запишем
+\[
+	\ddot{\theta}_r = f_r(\theta,I) + \tilde{f}_r,
+\]
+где 
+\[
+	\begin{aligned}
+		f_r(\theta,I) &= \frac{(J+Jr)K}{JJr}I - \frac{mlg}{J}\sin(\theta), \\ 
+		\tilde{f}_r &= -\frac{C_p(J+Jr)}{JJ_r}\dot{\theta} + \frac{C_p}{J}\dot{\theta}_r. 	
+	\end{aligned}
+\]
+
+Видно, что мы везучие, и в $\tilde{f}$ у нас входят только трения, которыми мы будем пренебрегать. Тогда
+\[
+	\begin{aligned}
+		\frac{d}{dt}\hat{x}_{p 1} &= \hat{x}_{p 2} - k_{p 1}\homd{e_p}^{\alpha_p}, \\
+		\frac{d}{dt}\hat{x}_{p 2} &= f_p(\theta,I) - k_{p 2}\homd{e_p}^{2\alpha_p-1}, \\
+		\hat{\dot{\theta}} &= \hat{x}_{p2},
+	\end{aligned}
+\]
+и 
+\[
+	\begin{aligned}
+		\frac{d}{dt}\hat{x}_{r 1} &= \hat{x}_{r 2} - k_{r 1}\homd{e_r}^{\alpha_r}, \\
+		\frac{d}{dt}\hat{x}_{r 2} &= f_r(\theta,I) - k_{r 2}\homd{e_r}^{2\alpha_r-1}, \\
+		\hat{\dot{\theta}}_r &= \hat{x}_{r2},
+	\end{aligned}
+\]
+где $e_p = \hat{x}_{p 1} - \theta$ и $e_r = \hat{x}_{r 1}  - \theta_r$.
+
+Теперь надо это всё промоделировать чтобы понять примерные значения для коэффициентов. На вскидку я бы сказал $k_1=9$, $k_2=6$, $\alpha=0.75$. 
 \end{document}
