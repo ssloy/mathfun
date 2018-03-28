@@ -41,7 +41,7 @@
 
 /* USER CODE BEGIN Includes */
 
-//#include "epos_can.h"
+#include "epos_can.h"
 #include "dwt_stm32_delay.h"
 
 /* USER CODE END Includes */
@@ -115,6 +115,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   HAL_TIM_Base_Start_IT(&htim4);
+
+  EposCanInit(&hcan1);
+  HAL_Delay(2000);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -203,7 +207,7 @@ static void MX_CAN1_Init(void)
 {
 
   hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 40;
+  hcan1.Init.Prescaler = 35;
   hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
   hcan1.Init.TimeSeg1 = CAN_BS1_13TQ;

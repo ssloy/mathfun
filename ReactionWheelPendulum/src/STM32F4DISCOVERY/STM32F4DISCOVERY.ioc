@@ -1,8 +1,8 @@
 #MicroXplorer Configuration settings - do not modify
-CAN1.CalculateTimeBit=2857
-CAN1.CalculateTimeQuantum=952.3809523809524
+CAN1.CalculateTimeBit=2500
+CAN1.CalculateTimeQuantum=833.3333333333334
 CAN1.IPParameters=CalculateTimeQuantum,CalculateTimeBit,TimeSeg1,TimeSeg2,Prescaler
-CAN1.Prescaler=40
+CAN1.Prescaler=35
 CAN1.TimeSeg1=CAN_BS1_13TQ
 CAN1.TimeSeg2=CAN_BS2_7TQ
 File.Version=6
@@ -100,7 +100,7 @@ ProjectManager.BackupPrevious=false
 ProjectManager.CompilerOptimize=2
 ProjectManager.ComputerToolchain=false
 ProjectManager.CoupleFile=false
-ProjectManager.CustomerFirmwarePackage=/home/ssloy/STM32Cube/Repository/STM32Cube_FW_F4_V1.19.0
+ProjectManager.CustomerFirmwarePackage=
 ProjectManager.DefaultFWLocation=true
 ProjectManager.DeletePrevious=true
 ProjectManager.DeviceId=STM32F407VGTx
