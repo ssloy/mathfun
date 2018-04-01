@@ -1,7 +1,8 @@
 #MicroXplorer Configuration settings - do not modify
+CAN1.AutoRetransmission=ENABLE
 CAN1.CalculateTimeBit=1500
 CAN1.CalculateTimeQuantum=500.0
-CAN1.IPParameters=CalculateTimeQuantum,CalculateTimeBit,TimeSeg1,TimeSeg2,Prescaler,SyncJumpWidth
+CAN1.IPParameters=CalculateTimeQuantum,CalculateTimeBit,TimeSeg1,TimeSeg2,Prescaler,SyncJumpWidth,AutoRetransmission
 CAN1.Prescaler=21
 CAN1.SyncJumpWidth=CAN_SJW_1TQ
 CAN1.TimeSeg1=CAN_BS1_13TQ

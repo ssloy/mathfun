@@ -53,12 +53,10 @@ TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-volatile uint8_t led = 0;
 
-CAN_TxHeaderTypeDef TxHeader;
-uint8_t TxData[8] = {170, 170, 170, 170, 170, 170, 170, 170};
-uint32_t TxMailbox;
-CAN_FilterTypeDef sFilterConfig;
+pdoMapping pdoRxmapping;
+pdoMapping pdoTxmapping;
+eposStatus epstat;
 
 /* USER CODE END PV */
 
@@ -77,11 +75,53 @@ static void MX_CAN1_Init(void);
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance==TIM4) {
+	  /*
 		uint16_t LEDS[4] = {GPIO_PIN_12, GPIO_PIN_13, GPIO_PIN_14, GPIO_PIN_15};
 		HAL_GPIO_TogglePin(GPIOD, LEDS[led]);
 		led = (led<3 ? led+1 : 0);
-//		printf("%d\n", led);
+	   */
 	}
+}
+
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
+  CAN_RxHeaderTypeDef RxHeader;
+  uint8_t RxData[8] = { 0 };
+  if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK) {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+  HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
+//  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+  /*
+  if ((RxHeader.StdId == 0x321) && (RxHeader.IDE == CAN_ID_STD) && (RxHeader.DLC == 2)) {
+    LED_Display(RxData[0]);
+    ubKeyNumber = RxData[0];
+  }
+  */
+}
+
+
+
+void can_configure() {
+  CAN_FilterTypeDef sFilterConfig;
+  sFilterConfig.FilterBank = 0;
+  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+  sFilterConfig.FilterIdHigh = 0x0000;
+  sFilterConfig.FilterIdLow = 0x0000;
+  sFilterConfig.FilterMaskIdHigh = 0x0000;
+  sFilterConfig.FilterMaskIdLow = 0x0000;
+  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+  sFilterConfig.FilterActivation = ENABLE;
+  sFilterConfig.SlaveStartFilterBank = 14;
+
+  if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK)
+    _Error_Handler(__FILE__, __LINE__);
+
+  if (HAL_CAN_Start(&hcan1) != HAL_OK)
+    _Error_Handler(__FILE__, __LINE__);
+
+  if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK)
+    _Error_Handler(__FILE__, __LINE__);
 }
 
 /* USER CODE END 0 */
@@ -94,6 +134,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+
+  pdoRxmapping.n_pdo = 1;
+  mapObject(&pdoRxmapping, CURRENT, 0x0, 16);
+  pdoTxmapping.n_pdo = 2;
+  mapObject(&pdoTxmapping, VELOCITY_ACTUAL, 0x00, 32);
+
+  epstat.nodeID = 0x01;
+  epstat.rxCobID = 0x201;
+  epstat.rPm = pdoRxmapping;
+  epstat.txCobID = 0x181;
+  epstat.tPm = pdoTxmapping;
 
   /* USER CODE END 1 */
 
@@ -121,36 +172,25 @@ int main(void)
 
   HAL_TIM_Base_Start_IT(&htim4);
 
-//  EposCanInit(&hcan1);
-//  HAL_Delay(2000);
-
-  sFilterConfig.FilterBank = 0;
-  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
-  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-  sFilterConfig.FilterIdHigh = 0x0000;
-  sFilterConfig.FilterIdLow = 0x0000;
-  sFilterConfig.FilterMaskIdHigh = 0x0000;
-  sFilterConfig.FilterMaskIdLow = 0x0000;
-  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
-  sFilterConfig.FilterActivation = ENABLE;
-  sFilterConfig.SlaveStartFilterBank = 1;
-  if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK)
-    while (1);
-
-  if (HAL_CAN_Start(&hcan1) != HAL_OK)
-    while (1);
-
-  if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK)
-    while (1);
+  can_configure();
+  eposReset();
+  HAL_Delay(2000);
+  enterPreOperational();
+  enableEpos();
+  enableEposRxPDO(epstat);
+  HAL_Delay(1000);
+  enableEposTxPDO(epstat);
+  enterOperational();
 
 
+/*
   TxHeader.StdId = 0x600;
   TxHeader.ExtId = 0;
   TxHeader.RTR = CAN_RTR_DATA;
   TxHeader.IDE = CAN_ID_STD;
   TxHeader.DLC = 8;
   TxHeader.TransmitGlobalTime = DISABLE;
-
+*/
 
   /* USER CODE END 2 */
 
@@ -161,30 +201,25 @@ int main(void)
   const uint32_t overflow_micros = 4294967295L/MHz;
   while (1)
   {
-	    __ASM volatile ("NOP");
-//	    HAL_Delay(100);
-	    cnt_micros_prev = cnt_micros;
-	    cnt_micros = DWT->CYCCNT/MHz;
-	    if (cnt_micros_prev>cnt_micros) cnt_overflow++;
-	    uint32_t micros = cnt_overflow*overflow_micros + cnt_micros;
-	    printf("millis: %lu\t micros: %lu\t micros: %lu\n", HAL_GetTick(), cnt_micros, micros);
-
-	    TxData[0] = 1;
-	    TxData[1] = 0xAD;
-	    /* Start the Transmission process */
-
-	    volatile uint32_t cnt = HAL_CAN_GetTxMailboxesFreeLevel(&hcan1);
-//	    if (cnt==3) {
-	    if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) != HAL_OK)  {
-	    /* Transmission request Error */
-	    	while(1) {
-	    		__ASM volatile ("NOP");
-	    	}
-//	        _Error_Handler(__FILE__, __LINE__);
-	    }
-	    while (HAL_CAN_IsTxMessagePending(&hcan1, TxMailbox)) {
-	    }
-
+    HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
+    __ASM volatile ("NOP");
+    HAL_Delay(100);
+    cnt_micros_prev = cnt_micros;
+    cnt_micros = DWT->CYCCNT/MHz;
+    if (cnt_micros_prev>cnt_micros) cnt_overflow++;
+    uint32_t micros = cnt_overflow*overflow_micros + cnt_micros;
+    printf("millis: %lu\t micros: %lu\t micros: %lu\n", HAL_GetTick(), cnt_micros, micros);
+    setSDOCurrent(400);
+/*
+    volatile uint32_t cnt = HAL_CAN_GetTxMailboxesFreeLevel(&hcan1);
+    if (3==cnt) {
+      HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_14);
+      globalcnt++;
+      if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) != HAL_OK)  {
+        _Error_Handler(__FILE__, __LINE__);
+      }
+    }
+*/
 
   /* USER CODE END WHILE */
 
@@ -265,7 +300,7 @@ static void MX_CAN1_Init(void)
   hcan1.Init.TimeTriggeredMode = DISABLE;
   hcan1.Init.AutoBusOff = DISABLE;
   hcan1.Init.AutoWakeUp = DISABLE;
-  hcan1.Init.AutoRetransmission = DISABLE;
+  hcan1.Init.AutoRetransmission = ENABLE;
   hcan1.Init.ReceiveFifoLocked = DISABLE;
   hcan1.Init.TransmitFifoPriority = DISABLE;
   if (HAL_CAN_Init(&hcan1) != HAL_OK)
@@ -359,9 +394,10 @@ void _Error_Handler(char *file, int line)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
-  while(1)
-  {
-	    __ASM volatile ("NOP");
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_SET);
+
+  while (1) {
+    __ASM volatile ("NOP");
   }
   /* USER CODE END Error_Handler_Debug */
 }
