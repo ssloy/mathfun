@@ -45,11 +45,6 @@ typedef struct {
   uint16_t txCobID;
   pdoMapping rPm;
   pdoMapping tPm;
-  /*
-  int16_t current;
-  int32_t velocity;
-  int32_t velocity2;
-  */
 } eposStatus;
 
 

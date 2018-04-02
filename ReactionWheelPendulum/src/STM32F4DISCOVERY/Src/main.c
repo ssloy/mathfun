@@ -134,17 +134,21 @@ void can_configure() {
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+/*
+  pdoRxmapping.n_mapped = 0;
   pdoRxmapping.n_pdo = 1;
   mapObject(&pdoRxmapping, CURRENT, 0x0, 16);
-  pdoTxmapping.n_pdo = 2;
+  pdoTxmapping.n_mapped = 0;
+  pdoTxmapping.n_pdo = 1;
   mapObject(&pdoTxmapping, VELOCITY_ACTUAL, 0x00, 32);
+*/
 
   epstat.nodeID = 0x01;
   epstat.rxCobID = 0x201;
-  epstat.rPm = pdoRxmapping;
+//  epstat.rPm = pdoRxmapping;
   epstat.txCobID = 0x181;
-  epstat.tPm = pdoTxmapping;
+//  epstat.tPm = pdoTxmapping;
+
 
   /* USER CODE END 1 */
 
@@ -174,23 +178,12 @@ int main(void)
 
   can_configure();
   eposReset();
-  HAL_Delay(2000);
-  enterPreOperational();
-  enableEpos();
-  enableEposRxPDO(epstat);
   HAL_Delay(1000);
-  enableEposTxPDO(epstat);
+  enableEpos();
+  enterPreOperational();
+//  enableEposRxPDO(epstat);
+//  enableEposTxPDO(epstat);
   enterOperational();
-
-
-/*
-  TxHeader.StdId = 0x600;
-  TxHeader.ExtId = 0;
-  TxHeader.RTR = CAN_RTR_DATA;
-  TxHeader.IDE = CAN_ID_STD;
-  TxHeader.DLC = 8;
-  TxHeader.TransmitGlobalTime = DISABLE;
-*/
 
   /* USER CODE END 2 */
 
@@ -201,15 +194,16 @@ int main(void)
   const uint32_t overflow_micros = 4294967295L/MHz;
   while (1)
   {
+    HAL_Delay(5000);
     HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
     __ASM volatile ("NOP");
-    HAL_Delay(100);
     cnt_micros_prev = cnt_micros;
     cnt_micros = DWT->CYCCNT/MHz;
     if (cnt_micros_prev>cnt_micros) cnt_overflow++;
     uint32_t micros = cnt_overflow*overflow_micros + cnt_micros;
     printf("millis: %lu\t micros: %lu\t micros: %lu\n", HAL_GetTick(), cnt_micros, micros);
-    setSDOCurrent(400);
+//    setSDOCurrent(-200);
+    setCurrent(300);
 /*
     volatile uint32_t cnt = HAL_CAN_GetTxMailboxesFreeLevel(&hcan1);
     if (3==cnt) {
