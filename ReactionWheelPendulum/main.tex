@@ -207,7 +207,7 @@ B=\begin{pmatrix}0\\ -\frac{k}{JR} \\ \frac{(J+J_r)k}{J\,J_r\,R} \end{pmatrix}.
 $$
 
 На всякий случай выпишем характеристический многочлен:
-$$\chi(\lambda) = -\lambda^3 - \frac{k^2(J_r+J)}{JrJR}\,\lambda^2 + \frac{mlg}{J}\,\lambda+\frac{mlgk^2}{J_rJR}.$$
+$$\chi(\lambda) = -\lambda^3 - \frac{k^2(J_r+J)}{J_rJR}\,\lambda^2 + \frac{mlg}{J}\,\lambda+\frac{mlgk^2}{J_rJR}.$$
 Он имеет три различных вещественных корня, два из них отрицательных, один положительный. В этом легко убедиться:
 $$
 \chi(0)>0,\quad \lim\limits_{\lambda\rightarrow-\infty}\chi(\lambda)=+\infty,\quad \lim\limits_{\lambda\rightarrow+\infty}\chi(\lambda)=-\infty,\quad\chi\left(-\sqrt{\frac{mlg}{J}}\right) = -\frac{mlg k^2}{J^2 R}<0.
@@ -349,7 +349,7 @@ B=\begin{pmatrix}0\\ -\frac{k}{J} \\ \frac{(J+J_r)k}{J\,J_r} \end{pmatrix}.
 		\dot{x}_1 &= x_2 + f_1(y,u), \\
 		\dot{x}_2 &= x_3 + f_2(y,u), \\		
 		&\vdots \\
-		\dot{x}_n &= f_n(y,u,t), \\
+		\dot{x}_n &= f_n(y,u), \\
 		y &= x_1,
 	\end{aligned}
 \end{equation}
@@ -398,25 +398,20 @@ B=\begin{pmatrix}0\\ -\frac{k}{J} \\ \frac{(J+J_r)k}{J\,J_r} \end{pmatrix}.
 где 
 \[
 	\begin{aligned}
-		f_p(\theta,I) &= -\frac{K}{J}I + \frac{mlg}{J}\sin(\theta), \\ 
+		f_p(\theta,I) &= -\frac{k}{J}I + \frac{mlg}{J}\sin(\theta), \\ 
 		\tilde{f}_p &= -\frac{C_p}{J}\dot{\theta} + \frac{C_p}{J}\dot{\theta}_r. 	
 	\end{aligned}
 \]
-Здесь $f_\theta(\theta,I)$ это то, что мы более-менее знаем и можем воспроизвести, а $\tilde{f}_\theta$ это то, чего мы не знаем или не измеряем. Также в последнее можно включить ошибки в оценивании параметров. 
+Здесь $f_p(\theta,I)$ это то, что мы более-менее знаем и можем воспроизвести, а $\tilde{f}_p$ это то, чего мы не знаем или не измеряем. 
+Также в последнее можно включить ошибки в оценивании параметров. 
+Видно, что мы везучие, и в $\tilde{f}_p$ у нас входят только трения, которыми мы будем пренебрегать.
+Тогда можно надеяться, что следующая система вида \eqref{eq:canonical} будет повторять динамику маятника:
+\begin{align*}
+\dot{x}_{p1} &= x_{p2}\\
+\dot{x}_{p2} &= f_p(\theta, I)
+\end{align*}
 
-Для маховика запишем
-\[
-	\ddot{\theta}_r = f_r(\theta,I) + \tilde{f}_r,
-\]
-где 
-\[
-	\begin{aligned}
-		f_r(\theta,I) &= \frac{(J+Jr)K}{JJr}I - \frac{mlg}{J}\sin(\theta), \\ 
-		\tilde{f}_r &= -\frac{C_p(J+Jr)}{JJ_r}\dot{\theta} + \frac{C_p}{J}\dot{\theta}_r. 	
-	\end{aligned}
-\]
-
-Видно, что мы везучие, и в $\tilde{f}$ у нас входят только трения, которыми мы будем пренебрегать. Тогда
+Обозначим ошибку наблюдения через $e_p = \hat{x}_{p 1} - \theta$, тогда наблюдатель будет выглядеть следующим образом:
 \[
 	\begin{aligned}
 		\frac{d}{dt}\hat{x}_{p 1} &= \hat{x}_{p 2} - k_{p 1}\homd{e_p}^{\alpha_p}, \\
@@ -424,15 +419,34 @@ B=\begin{pmatrix}0\\ -\frac{k}{J} \\ \frac{(J+J_r)k}{J\,J_r} \end{pmatrix}.
 		\hat{\dot{\theta}} &= \hat{x}_{p2},
 	\end{aligned}
 \]
-и 
+
+Сделаем то же самое и для второй степени свободы, для маховика:
+\[
+	\ddot{\theta}_r = f_r(\theta,I) + \tilde{f}_r,
+\]
+где 
 \[
 	\begin{aligned}
-		\frac{d}{dt}\hat{x}_{r 1} &= \hat{x}_{r 2} - k_{r 1}\homd{e_r}^{\alpha_r}, \\
-		\frac{d}{dt}\hat{x}_{r 2} &= f_r(\theta,I) - k_{r 2}\homd{e_r}^{2\alpha_r-1}, \\
-		\hat{\dot{\theta}}_r &= \hat{x}_{r2},
+		f_r(\theta,I) &= \frac{(J+J_r)k}{JJ_r}I - \frac{mlg}{J}\sin(\theta), \\ 
+		\tilde{f}_r &= -\frac{C_p(J+J_r)}{JJ_r}\dot{\theta} + \frac{C_p}{J}\dot{\theta}_r. 	
 	\end{aligned}
 \]
-где $e_p = \hat{x}_{p 1} - \theta$ и $e_r = \hat{x}_{r 1}  - \theta_r$.
 
-Теперь надо это всё промоделировать чтобы понять примерные значения для коэффициентов. На вскидку я бы сказал $k_1=9$, $k_2=6$, $\alpha=0.75$. 
+Опять-таки, в $\tilde{f}_r$ у нас входят только трения, которыми мы будем пренебрегать. Тогда система вида  \eqref{eq:canonical}:
+\begin{align*}
+\dot{x}_{r1} &= x_{r2}\\
+\dot{x}_{r2} &= f_r(\theta, I)
+\end{align*}
+предполагает следующий наблюдатель:
+\[
+\begin{aligned}
+	\frac{d}{dt}\hat{x}_{r 1} &= \hat{x}_{r 2} - k_{r 1}\homd{e_r}^{\alpha_r}, \\
+	\frac{d}{dt}\hat{x}_{r 2} &= f_r(\theta,I) - k_{r 2}\homd{e_r}^{2\alpha_r-1}, \\
+	\hat{\dot{\theta}}_r &= \hat{x}_{r2},
+\end{aligned}
+\]
+где $e_r = \hat{x}_{r 1}  - \theta_r$.
+
+Теперь надо это всё промоделировать чтобы понять примерные значения для коэффициентов. Навскидку я бы сказал $k_1=9$, $k_2=6$, $\alpha=0.75$. 
+
 \end{document}
