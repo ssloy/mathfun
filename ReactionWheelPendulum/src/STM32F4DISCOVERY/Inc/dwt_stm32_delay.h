@@ -7,18 +7,9 @@ extern "C" {
 
 #include "stm32f4xx_hal.h"
 
-/**
- * @brief  Initializes DWT_Cycle_Count for DWT_Delay_us function
- * @return Error DWT counter
- *         1: DWT counter Error
- *         0: DWT counter works
- */
-uint32_t DWT_Delay_Init(void);
+HAL_StatusTypeDef DWT_Delay_Init(void);
+uint32_t DWT_us();
 
-/**
- * @brief  This function provides a delay (in microseconds)
- * @param  microseconds: delay in microseconds
- */
 __STATIC_INLINE void DWT_Delay_us(volatile uint32_t microseconds) {
     uint32_t clk_cycle_start = DWT->CYCCNT;
 
