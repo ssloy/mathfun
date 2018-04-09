@@ -52,6 +52,7 @@
 
 /* USER CODE BEGIN Includes */
 
+#include "math.h"
 #include "usbd_cdc_if.h"
 #include "epos_can.h"
 #include "dwt_stm32_delay.h"
@@ -130,6 +131,48 @@ void can_configure() {
     _Error_Handler(__FILE__, __LINE__);
 }
 
+float get_rw_angle() {
+  return epos_position * (2.*M_PI / 48.);
+}
+
+float get_current() {
+  return epos_current/1000.;
+}
+
+void set_current(float ref) {
+  setCurrent(0x201, ref*1000);
+}
+
+float get_pendulum_angle() {
+  return 0.;
+}
+
+// frequencies are given in mHz
+void chirp_current_open_loop(float amplitude, float start_freq, float end_freq, uint32_t duration_ms) {
+  char buff[1024] = "time(s),reference current(A),current(A),rw angle(rad),pendulum angle(rad)\r\n";
+  CDC_Transmit_FS((uint8_t *)buff, strlen(buff));
+
+  uint32_t time_of_start, useconds;
+  useconds = time_of_start = DWT_us();
+
+  while (useconds < time_of_start + duration_ms * 1000L) {
+    useconds = DWT_us();
+    float t = (useconds - time_of_start) * 0.000001;
+    float phi = (start_freq + (end_freq - start_freq) * (t*1000.) / (float) duration_ms) * t;
+    float current_ref = sin(2. * M_PI * phi) * amplitude;
+
+    set_current(current_ref);
+
+    float current_measured = get_current();
+    float mesQr = get_rw_angle();
+    float mesQ  = get_pendulum_angle();
+
+    sprintf(buff, "%3.5f, %1.3f, %1.3f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, current_ref, current_measured, mesQr, mesQ);
+    CDC_Transmit_FS((uint8_t *)buff, strlen(buff));
+  }
+  set_current(0);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -148,8 +191,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  if (DWT_Delay_Init() != HAL_OK)
-    _Error_Handler(__FILE__, __LINE__);
 
   /* USER CODE END Init */
 
@@ -157,6 +198,9 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
+
+  if (DWT_Delay_Init() != HAL_OK)
+    _Error_Handler(__FILE__, __LINE__);
 
   /* USER CODE END SysInit */
 
@@ -175,25 +219,49 @@ int main(void)
   enableEpos(0x01);
   enterOperational();
 
+  HAL_Delay(5000);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  char buf[255];
+//  chirp_current_open_loop(3., .5, 3., 15000);
+
+  char buff[1024] = "time(s),reference current(A),current(A),rw angle(rad),pendulum angle(rad)\r\n";
+  CDC_Transmit_FS((uint8_t *)buff, strlen(buff));
+  uint32_t time_of_start = DWT_us();
+  float current_ref = -1.;
   while (1)
   {
+    uint32_t useconds  = DWT_us();
+    set_current(current_ref);
+
+    float current_measured = get_current();
+    float mesQr = get_rw_angle();
+    float mesQ  = get_pendulum_angle();
+
+    sprintf(buff, "%3.5f, %1.3f, %1.3f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, current_ref, current_measured, mesQr, mesQ);
+    CDC_Transmit_FS((uint8_t *)buff, strlen(buff));
+    if (useconds > time_of_start + 10000L * 1000L) {
+        current_ref = 0.;
+    }
+
+
+#if 0
     HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
 
     uint32_t useconds  = DWT_us();
     setCurrent(0x201, 200);
+    uint32_t useconds2  = DWT_us();
 
-    sprintf(buf, "%lu %d %ld\r\n", useconds, epos_current, epos_position);
+    sprintf(buf, "%lu %d %ld\r\n", useconds2-useconds, epos_current, epos_position);
     CDC_Transmit_FS((uint8_t *)buf, strlen(buf));
 
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
     while (DWT_us() - useconds < 4900);
+#endif
   }
   /* USER CODE END 3 */
 
