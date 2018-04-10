@@ -1,3 +1,4 @@
+
 /**
   ******************************************************************************
   * @file           : main.c
@@ -62,13 +63,17 @@
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan1;
 
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
-volatile int16_t epos_current  = 0;
-volatile int32_t epos_position = 0;
+volatile uint8_t system_task=0;
+
+volatile int16_t epos_current =0;
+volatile int32_t epos_position=0;
+volatile int32_t capture3=0, capture3_prev=0, encoder3=0;
 
 /* USER CODE END PV */
 
@@ -77,6 +82,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_CAN1_Init(void);
+static void MX_TIM3_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -144,7 +150,14 @@ void set_current(float ref) {
 }
 
 float get_pendulum_angle() {
-  return 0.;
+  // handle eventual overflows in the encoder reading
+  capture3 = TIM3->CNT;
+  encoder3 += capture3 - capture3_prev;
+  if (labs(capture3 - capture3_prev) > 32767) {
+    encoder3 += (capture3 < capture3_prev ? 65535 : -65535);
+  }
+  capture3_prev = capture3;
+  return (encoder3 - 5000) * (2.*M_PI/10000.);
 }
 
 // frequencies are given in mHz
@@ -169,6 +182,7 @@ void chirp_current_open_loop(float amplitude, float start_freq, float end_freq, 
 
     sprintf(buff, "%3.5f, %1.3f, %1.3f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, current_ref, current_measured, mesQr, mesQ);
     CDC_Transmit_FS((uint8_t *)buff, strlen(buff));
+    while (DWT_us() - useconds < 2000);
   }
   set_current(0);
 }
@@ -209,8 +223,10 @@ int main(void)
   MX_TIM4_Init();
   MX_CAN1_Init();
   MX_USB_DEVICE_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
+  HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
   HAL_TIM_Base_Start_IT(&htim4);
 
   can_configure();
@@ -219,49 +235,28 @@ int main(void)
   enableEpos(0x01);
   enterOperational();
 
-  HAL_Delay(5000);
+ // HAL_Delay(5000);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-//  chirp_current_open_loop(3., .5, 3., 15000);
 
-  char buff[1024] = "time(s),reference current(A),current(A),rw angle(rad),pendulum angle(rad)\r\n";
-  CDC_Transmit_FS((uint8_t *)buff, strlen(buff));
-  uint32_t time_of_start = DWT_us();
-  float current_ref = -1.;
   while (1)
   {
-    uint32_t useconds  = DWT_us();
-    set_current(current_ref);
-
-    float current_measured = get_current();
-    float mesQr = get_rw_angle();
-    float mesQ  = get_pendulum_angle();
-
-    sprintf(buff, "%3.5f, %1.3f, %1.3f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, current_ref, current_measured, mesQr, mesQ);
-    CDC_Transmit_FS((uint8_t *)buff, strlen(buff));
-    if (useconds > time_of_start + 10000L * 1000L) {
-        current_ref = 0.;
+    if (system_task) {
+      HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
+      HAL_Delay(3000);
+      chirp_current_open_loop(5., .5, 2., 10000);
+      system_task = 0;
     }
 
-
-#if 0
-    HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
-
     uint32_t useconds  = DWT_us();
-    setCurrent(0x201, 200);
-    uint32_t useconds2  = DWT_us();
-
-    sprintf(buf, "%lu %d %ld\r\n", useconds2-useconds, epos_current, epos_position);
-    CDC_Transmit_FS((uint8_t *)buf, strlen(buf));
 
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
     while (DWT_us() - useconds < 4900);
-#endif
   }
   /* USER CODE END 3 */
 
@@ -329,18 +324,53 @@ static void MX_CAN1_Init(void)
 {
 
   hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 7;
+  hcan1.Init.Prescaler = 21;
   hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_10TQ;
-  hcan1.Init.TimeSeg2 = CAN_BS2_1TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_13TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan1.Init.TimeTriggeredMode = DISABLE;
   hcan1.Init.AutoBusOff = DISABLE;
   hcan1.Init.AutoWakeUp = DISABLE;
-  hcan1.Init.AutoRetransmission = ENABLE;
+  hcan1.Init.AutoRetransmission = DISABLE;
   hcan1.Init.ReceiveFifoLocked = DISABLE;
   hcan1.Init.TransmitFifoPriority = DISABLE;
   if (HAL_CAN_Init(&hcan1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
+/* TIM3 init function */
+static void MX_TIM3_Init(void)
+{
+
+  TIM_Encoder_InitTypeDef sConfig;
+  TIM_MasterConfigTypeDef sMasterConfig;
+
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 0;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 15;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 15;
+  if (HAL_TIM_Encoder_Init(&htim3, &sConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
@@ -394,12 +424,18 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PD12 PD13 PD14 PD15 */
   GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
@@ -407,6 +443,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 1);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
 }
 
