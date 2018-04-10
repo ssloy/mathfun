@@ -75,6 +75,11 @@ volatile int16_t epos_current =0;
 volatile int32_t epos_position=0;
 volatile int32_t capture3=0, capture3_prev=0, encoder3=0;
 
+volatile uint32_t useconds=0, useconds_prev=0, time_of_start=0;
+volatile float hatXp1 = 0., hatXp2 = 0., hatXr1 = 0., hatXr2 = 0.;
+
+volatile float offset = 0.;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -244,18 +249,98 @@ int main(void)
 
   while (1)
   {
-    if (system_task) {
+/*    if (system_task) {
       HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
       HAL_Delay(3000);
       chirp_current_open_loop(5., .5, 2., 10000);
       system_task = 0;
     }
+*/
 
-    uint32_t useconds  = DWT_us();
+    if (system_task != 2) {
+      char buff2[255];
+      sprintf(buff2, "working ok, timestamp: %lu, task: %d\r\n", DWT_us(), system_task);
+      CDC_Transmit_FS((uint8_t *) buff2, strlen(buff2));
+      set_current(0);
+    }
+
+    float mesQ = get_pendulum_angle();
+
+    float mesQr = get_rw_angle();
+    float mesI = get_current();
+
+    while (mesQ > M_PI)  mesQ -= 2.*M_PI; // mod 2pi
+    while (mesQ < -M_PI) mesQ += 2.*M_PI;
+
+    useconds_prev = useconds;
+    useconds = DWT_us();
+
 
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
+
+    if (1 == system_task) {
+      hatXp1 = mesQ;
+      hatXr1 = mesQr;
+      offset = 0;
+
+      if (fabs(mesQ) < .1) {
+        system_task = 2;
+        time_of_start = useconds;
+        char buff2[255] = "#time, current, target_x, x, q\r\n";
+        CDC_Transmit_FS((uint8_t *) buff2, strlen(buff2));
+      }
+    }
+    if (2 == system_task) {
+      offset = .9998*offset + .0002*mesQ;
+      mesQ -= offset;
+
+      float dt = (useconds - useconds_prev) / 1000000.; // seconds
+
+      const float a = .75;
+      const float k1 = 7.;
+      const float k2 = 12.;
+
+      const float g = 9.81;
+      const float k = 0.0369;
+      const float Jr = 0.001248;
+      const float J = .7*.160*.160;
+      const float ml = .7*.160;
+
+      const float K[] = {93.744747, 14.829873, 0.093093};
+
+      float sinQ = sin(mesQ);
+
+      float ep = hatXp1 - mesQ;
+      float dhatXp1 = hatXp2                  - k1*pow(fabs(ep),       a)*(ep>0?1.:-1.);
+      float dhatXp2 = -k/J*mesI + ml*g/J*sinQ - k2*pow(fabs(ep), 2.*a-1.)*(ep>0?1.:-1.);
+      hatXp1 += dt*dhatXp1;
+      hatXp2 += dt*dhatXp2;
+
+      float er = hatXr1 - mesQr;
+      float dhatXr1 = hatXr2                             - k1*pow(fabs(er),       a)*(er>0?1.:-1.);
+      float dhatXr2 = (J+Jr)/(J*Jr)*k*mesI - ml*g/J*sinQ - k2*pow(fabs(er), 2.*a-1.)*(er>0?1.:-1.);
+      hatXr1 += dt*dhatXr1;
+      hatXr2 += dt*dhatXr2;
+
+      float refI = K[0]*mesQ + K[1]*hatXp2 + K[2]*hatXr2;
+      if (refI >  5.) refI =  5.;
+      if (refI < -5.) refI = -5.;
+
+      set_current(refI);
+
+      if (fabs(mesQ) > .3) {
+        system_task = 9;
+        offset = 0.;
+        set_current(0);
+      }
+
+      char buff[255] = { 0 };
+      sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f %3.4f\r\n", (useconds - time_of_start) * 1e-6, refI, mesQr, get_pendulum_angle(), offset);
+      CDC_Transmit_FS((uint8_t *) buff, strlen(buff));
+    }
+
     while (DWT_us() - useconds < 4900);
   }
   /* USER CODE END 3 */
