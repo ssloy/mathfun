@@ -1,0 +1,1 @@
+USE_IDEAL_RW=0; % Do we consider an ideal RW?
