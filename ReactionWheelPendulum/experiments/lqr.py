@@ -30,7 +30,7 @@ B = np.matrix([[0.],[-k/J*dt],[(J+Jr)*k/(J*Jr)*dt]])
 print(A)
 print(B)
 
-Q = np.matrix("1 0 0; 0 .1 0 ; 0 0 .00001")
+Q = np.matrix("1 0 0; 0 .1 0 ; 0 0 .0001")
 R = np.matrix(".001")
 
 K = dlqr(A,B,Q,R)

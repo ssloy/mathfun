@@ -293,7 +293,8 @@ int main(void)
       }
     }
     if (2 == system_task) {
-      offset = .9998*offset + .0002*mesQ;
+      const float oa = .0003;
+      offset = (1.-oa)*offset + oa*mesQ;
       mesQ -= offset;
 
       float dt = (useconds - useconds_prev) / 1000000.; // seconds
@@ -308,7 +309,8 @@ int main(void)
       const float J = .7*.160*.160;
       const float ml = .7*.160;
 
-      const float K[] = {93.744747, 14.829873, 0.093093};
+      const float K[] = {139.312999, 20.026980, 0.290980};
+
 
       float sinQ = sin(mesQ);
 
