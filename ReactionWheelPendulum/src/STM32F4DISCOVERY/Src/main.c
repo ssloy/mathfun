@@ -70,8 +70,10 @@ TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-const uint16_t adxl_address=(0x53<<1);
-uint8_t data_rec[6];
+const uint16_t adxl_device_a_address=(0x53<<1);
+const uint16_t adxl_device_b_address=(0x1d<<1);
+
+
 uint8_t chipid=0;
 
 
@@ -102,28 +104,52 @@ static void MX_I2C1_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-void adxl_write (uint8_t reg, uint8_t value) {
-    uint8_t data[2];
-    data[0] = reg;
-    data[1] = value;
-    HAL_I2C_Master_Transmit (&hi2c1, adxl_address, data, 2, 100);
+void adxl_write(const uint16_t adxl_address, uint8_t reg, uint8_t value) {
+  uint8_t data[2];
+  data[0] = reg;
+  data[1] = value;
+  HAL_I2C_Master_Transmit(&hi2c1, adxl_address, data, 2, 100);
 }
 
-void adxl_read_values (uint8_t reg) {
-    HAL_I2C_Mem_Read (&hi2c1, adxl_address, reg, 1, (uint8_t *)data_rec, 6, 100);
+void adxl_read_values (const uint16_t adxl_address, uint8_t reg, uint8_t *buf) {
+  HAL_I2C_Mem_Read(&hi2c1, adxl_address, reg, 1, (uint8_t *)buf, 6, 3);
 }
 
-void adxl_read_address (uint8_t reg) {
-    HAL_I2C_Mem_Read (&hi2c1, adxl_address, reg, 1, &chipid, 1, 100);
+void get_adxl_xyz(const uint16_t adxl_address, float *x, float *y, float *z) {
+  uint8_t data_rec[6];
+  adxl_read_values(adxl_address, 0x32, data_rec);
+  int16_t ix = ((data_rec[1]<<8)|data_rec[0]);
+  int16_t iy = ((data_rec[3]<<8)|data_rec[2]);
+  int16_t iz = ((data_rec[5]<<8)|data_rec[4]);
+  *x = ix * .0078;
+  *y = iy * .0078;
+  *z = iz * .0078;
 }
 
-void adxl_init (void) {
-    adxl_read_address (0x00); // read the DEVID
+float get_adxl_angle(const uint16_t adxl_address) {
+  float x,y,z;
+  get_adxl_xyz(adxl_address, &x, &y, &z);
+  float angle = atan2(x,y);
+  return angle;
+}
 
-    adxl_write (0x31, 0x01);  // data_format range= +- 4g
-    adxl_write (0x2d, 0x00);  // reset all bits
-    adxl_write (0x2d, 0x08);  // power_cntl measure and wake up 8hz
+float get_adxl_angle() {
+  float ax,ay,az,bx,by,bz;
+  get_adxl_xyz(adxl_device_a_address, &ax, &ay, &az);
+  get_adxl_xyz(adxl_device_b_address, &bx, &by, &bz);
+  const float mu = 3.9;
+  return atan2(ax-mu*bx,ay-mu*by);
+}
 
+void adxl_read_address (const uint16_t adxl_address, uint8_t reg) {
+  HAL_I2C_Mem_Read(&hi2c1, adxl_address, reg, 1, &chipid, 1, 3);
+}
+
+void adxl_init (const uint16_t adxl_address) {
+    adxl_read_address (adxl_address, 0x00); // read the DEVID
+    adxl_write (adxl_address, 0x31, 0x01);  // data_format range= +- 4g
+    adxl_write (adxl_address, 0x2d, 0x00);  // reset all bits
+    adxl_write (adxl_address, 0x2d, 0x08);  // power_cntl measure and wake up 8hz
 }
 
 
@@ -266,7 +292,8 @@ int main(void)
   HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
   HAL_TIM_Base_Start_IT(&htim4);
 
-  adxl_init();  // initialize adxl
+  adxl_init(adxl_device_a_address);
+  adxl_init(adxl_device_b_address);
 
   can_configure();
   eposReset();
@@ -292,19 +319,16 @@ int main(void)
 */
 
     {
-    adxl_read_values (0x32);
-    int16_t x = ((data_rec[1]<<8)|data_rec[0]);
-    int16_t y = ((data_rec[3]<<8)|data_rec[2]);
-    int16_t z = ((data_rec[5]<<8)|data_rec[4]);
+      HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
 
-    float xg = x * .0078;
-    float yg = y * .0078;
-    float zg = z * .0078;
+      float a1 = get_adxl_angle(adxl_device_a_address);
+      float a2 = get_adxl_angle(adxl_device_b_address);
 
-    char buff2[255];
-    sprintf(buff2, "%f %f %f\r\n", xg, yg, zg);
-    CDC_Transmit_FS((uint8_t *) buff2, strlen(buff2));
-
+      char buff2[255];
+      sprintf(buff2, "%f %f\r\n", a1, a2);
+      CDC_Transmit_FS((uint8_t *) buff2, strlen(buff2));
+      HAL_Delay(100);
+      continue;
     }
 
     if (system_task != 2) {
