@@ -126,19 +126,21 @@ void get_adxl_xyz(const uint16_t adxl_address, float *x, float *y, float *z) {
   *z = iz * .0078;
 }
 
-float get_adxl_angle(const uint16_t adxl_address) {
+
+float get_adxl_angle_(const uint16_t adxl_address) {
   float x,y,z;
   get_adxl_xyz(adxl_address, &x, &y, &z);
   float angle = atan2(x,y);
   return angle;
 }
 
+
 float get_adxl_angle() {
   float ax,ay,az,bx,by,bz;
   get_adxl_xyz(adxl_device_a_address, &ax, &ay, &az);
   get_adxl_xyz(adxl_device_b_address, &bx, &by, &bz);
-  const float mu = 3.9;
-  return atan2(ax-mu*bx,ay-mu*by);
+  const float mu = 3.;
+  return -atan2(ax-mu*bx,-ay+mu*by);
 }
 
 void adxl_read_address (const uint16_t adxl_address, uint8_t reg) {
@@ -317,23 +319,26 @@ int main(void)
       system_task = 0;
     }
 */
+/*
 
     {
       HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
 
-      float a1 = get_adxl_angle(adxl_device_a_address);
-      float a2 = get_adxl_angle(adxl_device_b_address);
+      float a1 = get_adxl_angle_(adxl_device_a_address);
+      float a2 = get_adxl_angle_(adxl_device_b_address);
+      float a = get_adxl_angle();
 
       char buff2[255];
-      sprintf(buff2, "%f %f\r\n", a1, a2);
+      sprintf(buff2, "%f %f %f\r\n", a1, a2, a);
       CDC_Transmit_FS((uint8_t *) buff2, strlen(buff2));
       HAL_Delay(100);
       continue;
     }
-
+*/
     if (system_task != 2) {
       char buff2[255];
-      sprintf(buff2, "working ok, timestamp: %lu, task: %d\r\n", DWT_us(), system_task);
+      float mesQ = get_adxl_angle();//get_pendulum_angle();
+      sprintf(buff2, "working ok, timestamp: %lu, task: %d %f\r\n", DWT_us(), system_task, mesQ);
       CDC_Transmit_FS((uint8_t *) buff2, strlen(buff2));
       set_current(0);
     }
@@ -406,14 +411,15 @@ int main(void)
 
       set_current(refI);
 
-      if (fabs(mesQ) > .3) {
+      if (fabs(get_pendulum_angle()) > .4) {
         system_task = 9;
         offset = 0.;
         set_current(0);
       }
 
+
       char buff[255] = { 0 };
-      sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f %3.4f\r\n", (useconds - time_of_start) * 1e-6, refI, mesQr, get_pendulum_angle(), offset);
+      sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f %3.4f\r\n", (useconds - time_of_start) * 1e-6, refI, mesQr, get_pendulum_angle(), mesQ);
       CDC_Transmit_FS((uint8_t *) buff, strlen(buff));
     }
 
@@ -486,7 +492,7 @@ static void MX_CAN1_Init(void)
 
   hcan1.Instance = CAN1;
   hcan1.Init.Prescaler = 21;
-  hcan1.Init.Mode = CAN_MODE_LOOPBACK;
+  hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
   hcan1.Init.TimeSeg1 = CAN_BS1_13TQ;
   hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
