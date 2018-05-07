@@ -334,8 +334,8 @@ int main(void)
 
 
     const float mu = 2.;
-//    float mesQ = get_pendulum_angle(1);
-    float mesQ = atan2(ax-mu*bx, -(ay-mu*by));
+    float mesQ = get_pendulum_angle(1);
+//    float mesQ = atan2(ax-mu*bx, -(ay-mu*by));
 
     if (system_task != 2) {
       char buff2[255];
@@ -362,7 +362,7 @@ int main(void)
 
       hatXp1 = mesQ;
       hatXr1 = mesQr;
-      offset = 0;
+      offset = -.02;
 
       if (fabs(mesQ) < .1) {
         system_task = 2;
