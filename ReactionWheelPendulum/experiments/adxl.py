@@ -43,7 +43,7 @@ ax1.plot(time, aQ,  color='blue',   label='raw adxl345 #1 readings')
 ax1.plot(time, bQ,  color='green',  label='raw adxl345 #2 readings')
 ax1.plot(time, zQ,  color='black',  label='adxl345 pendulum angle, rad')
 ax1.plot(time,  Q,  color='red',    label='encoder pendulum angle, rad')
-ax1.plot(time, amps,  color='magenta',    label='current, A')
+#ax1.plot(time, amps,  color='magenta',    label='current, A')
 
 ax1.legend()
 plt.show()
