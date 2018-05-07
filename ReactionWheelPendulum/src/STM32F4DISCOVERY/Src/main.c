@@ -66,16 +66,12 @@ CAN_HandleTypeDef hcan1;
 I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim3;
-TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+
 const uint16_t adxl_device_a_address=(0x53<<1);
 const uint16_t adxl_device_b_address=(0x1d<<1);
-
-
-uint8_t chipid=0;
-
 
 volatile uint8_t system_task=0;
 
@@ -93,7 +89,6 @@ volatile float offset = 0.;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_TIM4_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_I2C1_Init(void);
@@ -111,7 +106,7 @@ void adxl_write(const uint16_t adxl_address, uint8_t reg, uint8_t value) {
   HAL_I2C_Master_Transmit(&hi2c1, adxl_address, data, 2, 100);
 }
 
-void adxl_read_values (const uint16_t adxl_address, uint8_t reg, uint8_t *buf) {
+void adxl_read_values(const uint16_t adxl_address, uint8_t reg, uint8_t *buf) {
   HAL_I2C_Mem_Read(&hi2c1, adxl_address, reg, 1, (uint8_t *)buf, 6, 3);
 }
 
@@ -121,9 +116,9 @@ void get_adxl_xyz(const uint16_t adxl_address, float *x, float *y, float *z) {
   int16_t ix = ((data_rec[1]<<8)|data_rec[0]);
   int16_t iy = ((data_rec[3]<<8)|data_rec[2]);
   int16_t iz = ((data_rec[5]<<8)|data_rec[4]);
-  *x = ix * .0078;
-  *y = iy * .0078;
-  *z = iz * .0078;
+  *x = ix * .0039;
+  *y = iy * .0039;
+  *z = iz * .0039;
 }
 
 
@@ -134,24 +129,26 @@ float get_adxl_angle_(const uint16_t adxl_address) {
   return angle;
 }
 
-
 float get_adxl_angle() {
   float ax,ay,az,bx,by,bz;
   get_adxl_xyz(adxl_device_a_address, &ax, &ay, &az);
   get_adxl_xyz(adxl_device_b_address, &bx, &by, &bz);
-  const float mu = 3.;
+  const float mu = 2.;
   return -atan2(ax-mu*bx,-ay+mu*by);
 }
 
-void adxl_read_address (const uint16_t adxl_address, uint8_t reg) {
-  HAL_I2C_Mem_Read(&hi2c1, adxl_address, reg, 1, &chipid, 1, 3);
+uint8_t adxl_read_address(const uint16_t adxl_address, uint8_t reg) {
+  uint8_t val = 0;
+  HAL_I2C_Mem_Read(&hi2c1, adxl_address, reg, 1, &val, 1, 3);
+  return val;
 }
 
 void adxl_init (const uint16_t adxl_address) {
-    adxl_read_address (adxl_address, 0x00); // read the DEVID
-    adxl_write (adxl_address, 0x31, 0x01);  // data_format range= +- 4g
-    adxl_write (adxl_address, 0x2d, 0x00);  // reset all bits
-    adxl_write (adxl_address, 0x2d, 0x08);  // power_cntl measure and wake up 8hz
+  adxl_read_address(adxl_address, 0x00); // read the DEVID
+  adxl_write(adxl_address, 0x31, 0x00);  // data_format range= +- 4g
+  adxl_write(adxl_address, 0x2d, 0x00);  // reset all bits
+  adxl_write(adxl_address, 0x2d, 0x08);  // power_cntl measure and wake up 8hz
+  adxl_write(adxl_address, 0x2c, 0x0f);  // 3200 Hz output data rate
 }
 
 
@@ -213,7 +210,7 @@ void set_current(float ref) {
   setCurrent(0x201, ref*1000);
 }
 
-float get_pendulum_angle() {
+float get_pendulum_angle(uint8_t mod2p) {
   // handle eventual overflows in the encoder reading
   capture3 = TIM3->CNT;
   encoder3 += capture3 - capture3_prev;
@@ -221,7 +218,13 @@ float get_pendulum_angle() {
     encoder3 += (capture3 < capture3_prev ? 65535 : -65535);
   }
   capture3_prev = capture3;
-  return (encoder3 - 5000) * (2.*M_PI/10000.);
+
+  float encoder_angle = (encoder3 - 5000) * (2.*M_PI/10000.);
+  if (mod2p) {
+    while (encoder_angle >  M_PI) encoder_angle -= 2.*M_PI; // mod 2pi
+    while (encoder_angle < -M_PI) encoder_angle += 2.*M_PI;
+  }
+  return encoder_angle;
 }
 
 // frequencies are given in mHz
@@ -238,15 +241,23 @@ void chirp_current_open_loop(float amplitude, float start_freq, float end_freq, 
     float phi = (start_freq + (end_freq - start_freq) * (t*1000.) / (float) duration_ms) * t;
     float current_ref = sin(2. * M_PI * phi) * amplitude;
 
+    if (useconds < time_of_start + .666*duration_ms * 1000L) {
     set_current(current_ref);
+    } else {
+    set_current(0);
+    }
 
     float current_measured = get_current();
     float mesQr = get_rw_angle();
-    float mesQ  = get_pendulum_angle();
+    float mesQ  = get_pendulum_angle(0);
 
-    sprintf(buff, "%3.5f, %1.3f, %1.3f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, current_ref, current_measured, mesQr, mesQ);
+    float ax,ay,az,bx,by,bz;
+    get_adxl_xyz(adxl_device_a_address, &ax, &ay, &az);
+    get_adxl_xyz(adxl_device_b_address, &bx, &by, &bz);
+
+    sprintf(buff, "%3.5f, %1.3f, %1.3f, %3.4f, %3.4f, %3.4f, %3.4f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, current_ref, current_measured, mesQr, mesQ, ax, ay, bx, by);
     CDC_Transmit_FS((uint8_t *)buff, strlen(buff));
-    while (DWT_us() - useconds < 2000);
+    while (DWT_us() - useconds < 1000);
   }
   set_current(0);
 }
@@ -284,7 +295,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_TIM4_Init();
   MX_CAN1_Init();
   MX_USB_DEVICE_Init();
   MX_TIM3_Init();
@@ -292,7 +302,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
-  HAL_TIM_Base_Start_IT(&htim4);
 
   adxl_init(adxl_device_a_address);
   adxl_init(adxl_device_b_address);
@@ -309,47 +318,35 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  float ax = 0, bx = 0, ay = 0, by = 0, az = 0, bz = 0;
+
+  float hatX1 = 0, hatX2 = 0, hatX3 = 0;
 
   while (1)
   {
-/*    if (system_task) {
+
+    if (0 && system_task) {
       HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
       HAL_Delay(3000);
       chirp_current_open_loop(5., .5, 2., 10000);
       system_task = 0;
     }
-*/
-/*
 
-    {
-      HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
 
-      float a1 = get_adxl_angle_(adxl_device_a_address);
-      float a2 = get_adxl_angle_(adxl_device_b_address);
-      float a = get_adxl_angle();
+    const float mu = 2.;
+//    float mesQ = get_pendulum_angle(1);
+    float mesQ = atan2(ax-mu*bx, -(ay-mu*by));
 
-      char buff2[255];
-      sprintf(buff2, "%f %f %f\r\n", a1, a2, a);
-      CDC_Transmit_FS((uint8_t *) buff2, strlen(buff2));
-      HAL_Delay(100);
-      continue;
-    }
-*/
     if (system_task != 2) {
       char buff2[255];
-      float mesQ = get_adxl_angle();//get_pendulum_angle();
       sprintf(buff2, "working ok, timestamp: %lu, task: %d %f\r\n", DWT_us(), system_task, mesQ);
       CDC_Transmit_FS((uint8_t *) buff2, strlen(buff2));
       set_current(0);
     }
 
-    float mesQ = get_pendulum_angle();
 
     float mesQr = get_rw_angle();
     float mesI = get_current();
-
-    while (mesQ > M_PI)  mesQ -= 2.*M_PI; // mod 2pi
-    while (mesQ < -M_PI) mesQ += 2.*M_PI;
 
     useconds_prev = useconds;
     useconds = DWT_us();
@@ -360,6 +357,9 @@ int main(void)
   /* USER CODE BEGIN 3 */
 
     if (1 == system_task) {
+      hatX1 = mesQ;
+      hatX2 = hatX3 = 0;
+
       hatXp1 = mesQ;
       hatXr1 = mesQr;
       offset = 0;
@@ -390,7 +390,6 @@ int main(void)
 
       const float K[] = {139.312999, 20.026980, 0.290980};
 
-
       float sinQ = sin(mesQ);
 
       float ep = hatXp1 - mesQ;
@@ -405,25 +404,50 @@ int main(void)
       hatXr1 += dt*dhatXr1;
       hatXr2 += dt*dhatXr2;
 
+
+      float ytilde = hatX1 + hatX3 - mesQ;
+
+      float dhatX1 = hatX2 - 546.*ytilde;
+      float dhatX2 = -k/J*mesI + ml*g/J*sinQ -1100.*ytilde;
+      float dhatX3 = 508.*ytilde;
+
+      hatX1 += dt*dhatX1;
+      hatX2 += dt*dhatX2;
+      hatX3 += dt*dhatX3;
+
       float refI = K[0]*mesQ + K[1]*hatXp2 + K[2]*hatXr2;
+//      float refI = K[0]*hatX1 + K[1]*hatXp2 + K[2]*hatXr2;
       if (refI >  5.) refI =  5.;
       if (refI < -5.) refI = -5.;
 
       set_current(refI);
 
-      if (fabs(get_pendulum_angle()) > .4) {
+      float encoder_angle = get_pendulum_angle(1);
+      if (fabs(encoder_angle) > .3) {
         system_task = 9;
         offset = 0.;
         set_current(0);
       }
 
-
       char buff[255] = { 0 };
-      sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f %3.4f\r\n", (useconds - time_of_start) * 1e-6, refI, mesQr, get_pendulum_angle(), mesQ);
+      sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, refI, mesQr, encoder_angle, mesQ, hatX3);
       CDC_Transmit_FS((uint8_t *) buff, strlen(buff));
     }
 
-    while (DWT_us() - useconds < 4900);
+    float buf[3];
+    const float cf_speed = .1;
+    while (DWT_us() - useconds < 4900) {
+        get_adxl_xyz(adxl_device_a_address, buf, buf+1, buf+2);
+        ax = (1-cf_speed)*ax + cf_speed*buf[0];
+        ay = (1-cf_speed)*ay + cf_speed*buf[1];
+        DWT_Delay_us(10);
+        get_adxl_xyz(adxl_device_b_address, buf, buf+1, buf+2);
+        bx = (1-cf_speed)*bx + cf_speed*buf[0];
+        by = (1-cf_speed)*by + cf_speed*buf[1];
+        DWT_Delay_us(10);
+    }
+
+//    while (DWT_us() - useconds < 5000);
   }
   /* USER CODE END 3 */
 
@@ -514,7 +538,7 @@ static void MX_I2C1_Init(void)
 {
 
   hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.ClockSpeed = 400000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
@@ -558,38 +582,6 @@ static void MX_TIM3_Init(void)
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-}
-
-/* TIM4 init function */
-static void MX_TIM4_Init(void)
-{
-
-  TIM_ClockConfigTypeDef sClockSourceConfig;
-  TIM_MasterConfigTypeDef sMasterConfig;
-
-  htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 41999;
-  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 499;
-  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
