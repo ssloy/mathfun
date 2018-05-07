@@ -1,4 +1,4 @@
-time(s),reference current(A),current(A),rw angle(rad),pendulum angle(rad)
+time(s),reference current(A),current(A),rw angle(rad),pendulum angle(rad),xa,ya,xb,yb
 0.00000, 0.000, 0.000, 263.1084, -3.1416, 0.0000, -0.9750, 0.0000, -0.9828
 0.00133, 0.021, 0.000, 263.1084, -3.1416, -0.0234, -0.9672, 0.0000, -1.0218
 0.00272, 0.043, 0.000, 263.1084, -3.1416, 0.0000, -0.9750, 0.0000, -0.9750
