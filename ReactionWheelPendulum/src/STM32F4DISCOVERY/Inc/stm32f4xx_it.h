@@ -53,7 +53,6 @@ void SysTick_Handler(void);
 void EXTI0_IRQHandler(void);
 void CAN1_TX_IRQHandler(void);
 void CAN1_RX0_IRQHandler(void);
-void TIM4_IRQHandler(void);
 void OTG_FS_IRQHandler(void);
 
 #ifdef __cplusplus
