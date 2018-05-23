@@ -31,6 +31,9 @@ mlg = (mp*lp + mr*lr)*g;
 % construct the array of the mechanical parameters used for simulations
 mechParams = [J, Jr, Cp, Cr, mlg]; 
 
+% Thete sensor displacemnet
+thetaDisplacement = 0.1;
+
 %% Initial values
 theta0=-0.1;
 dTheta0=1;
@@ -66,4 +69,26 @@ kr=poly([-3 -4]);
 kr=kr(2:end);
 xr0=[thetaRW0;0];
 
+%% Displacement observer
+b1=-k/J;
+a1=mlg/J;
+b2=(J+Jr)*k/J/Jr;
+a2=-mlg/J;
+
+Lobs=[546;1100;-508];
+
+% This part was used for LMI solver and is not actual at the moment
+% AObs1=[0 1 0; 0 0 -a1; 0 0 0];
+% AObs2=[0 1 0; 0 0 -0.05*a1; 0 0 0];
+% CObs=[1 0 1];
+
+% LObs=sdpvar(1,3);
+% PObs=sdpvar(3);
+% Q1=AObs1'*PObs+PObs*AObs1-CObs'*LObs-LObs'*CObs+3*PObs;
+% Q2=AObs2'*PObs+PObs*AObs2-CObs'*LObs-LObs'*CObs+1*PObs;
+% sol = optimize([Q1<=0, Q2<=0, PObs>=0.01*eye(3)],[]);
+% if sol.problem
+%     error('LMI not solved');
+% end
+% LObs=(value(LObs)/value(PObs))';
 
