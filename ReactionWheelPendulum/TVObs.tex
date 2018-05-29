@@ -1,6 +1,7 @@
+\subsubsection*{Change of coordinates to remove $a_1$}
 We consider the system 
 \[
-	\dot{x}_p = A_p(q)x_p + \beta_p(t), \ y=C_px_p,
+	\dot{x}_p = A_p(q)x_p + \beta_p(t), \ y=C_px,
 \]
 where
 \[
@@ -10,9 +11,9 @@ where
 \]
 with the known constant parameter $a_1>0$, measured external signal $q(t)$, and known reference input $\beta_p(t)$. The system is observable for $\cos(q)\ne 0$ and is not observable for $\cos(q)=0$. The goal is to design an observer for $x_p$.
 
-First we define the unitary matrix
+First we define the constant invertible matrix
 \[
-	T_p :=  \begin{bmatrix} \frac{\sqrt{2}}{2} & 0 & -\frac{\sqrt{2}}{2}\\ 0 & 1 & 0\\ \frac{\sqrt{2}}{2} & 0 & \frac{\sqrt{2}}{2} 	 \end{bmatrix}
+	T_p :=  \begin{bmatrix} 0 & 0 & -a_1 \\ 0 & 1 & 0\\ 1 & 0 & 1 \end{bmatrix}
 \]
 and the change of coordinates $x := T_p x_p$. Hence
 \[
@@ -21,198 +22,172 @@ and the change of coordinates $x := T_p x_p$. Hence
 where
 \[
 	\begin{aligned}
-		A(q) &:= T_p A_p(q) T_p^\top = 
-		\begin{bmatrix} 0 & \frac{\sqrt{2}}{2} & 0\\ \frac{\sqrt{2}}{2}a_{1}\cos(q) & 0 & -\frac{\sqrt{2}}{2}a_{1}\cos(q)\\ 0 & \frac{\sqrt{2}}{2} & 0 \end{bmatrix}, \\
-		C &:= C_p T_p^\top = \begin{bmatrix} 0 & 0 & \sqrt{2} \end{bmatrix}, \ \beta:=T_p\beta_p.
+		A(q) &:= T_p A_p(q) T_p^{-1} = 
+		\begin{bmatrix} 0 & 0 & 0\\ \cos(q) & 0 & 0\\ 0 & 1 & 0 \end{bmatrix}, \\
+		C &:= C_p T_p^{-1} = \begin{bmatrix} 0 & 0 & 1 \end{bmatrix}, \ \beta:=T_p\beta_p.
 	\end{aligned}
 \]
-When $\cos(q)\ne 0$ the pair $\left(A(q),C\right)$ is obviously observable. However, for $\cos(q)$ the matrix $A$ is in the stair-case observable form, \emph{i.e.} the states $x_{2}$ and $x_{3}$ remain observable while the state $x_{1}$ is not. Note that since the matrix $T_p$ is constant and invertible, the problem of estimation of $x_p$ is equivalent to the problem of estimation of $x$.
+When $\cos(q)\ne 0$ the pair $\left(A(q),C\right)$ is observable. However, for $\cos(q)$ the matrix $A$ is in the stair-case observable form, \emph{i.e.} the states $x_{2}$ and $x_{3}$ remain observable while the state $x_{1}$ is not. Note that since the matrix $T_p$ is constant and invertible, the problem of estimation of $x_p$ is equivalent to the problem of estimation of $x$.
 
-
-The characteristic polynomial of the matrix $A(q)$ is 
+\subsubsection*{Switched observer}
+Let us rewrite the model as
 \[
-	\det\left(sI-A(q)\right) \equiv s^3,
+	\dot{x} = A_\pm x + \beta +B_f f_\pm(x_1,q),
 \]
-and the canonical observable form of the system is given by
+where
 \[
-	A_o := \begin{bmatrix} 0 & 0 & 0\\ 1 & 0 & 0\\ 0 & 1 & 0  \end{bmatrix}, \ C_o := \begin{bmatrix} 0 & 0 & 1 \end{bmatrix}.
+	A_{\pm} = \begin{cases}
+		A_+ \text{ for } \cos(q)\ge0, \\
+		A_- \text{ for } \cos(q)<0,
+	\end{cases},
+	\ 
+	f_{\pm}(x_1,q) = \begin{cases}
+		f_+(x_1,q) \text{ for } \cos(q)\ge0, \\
+		f_-(x_1,q) \text{ for } \cos(q)<0,
+	\end{cases}	
 \]
-Define the change of coordinates $z:=T(q)x$, where
+with
 \[
-	T(q) := \begin{bmatrix} C_o \\ C_oA_o \\ C_oA_o^2 \end{bmatrix}^{-1}
-			  \begin{bmatrix} C \\ CA \\ CA^2 \end{bmatrix}  =
-			  \begin{bmatrix} \frac{\sqrt{2}}{2}a_{1}\cos(q) & 0 & -\frac{\sqrt{2}}{2}a_{1}\cos(q)\\ 0 & 1 & 0\\ 0 & 0 & \sqrt{2} \end{bmatrix}.
+	\begin{gathered}
+		A_+:=\begin{bmatrix} 0 & 0 & 0 \\ 1 & 0 & 0 \\ 0 & 1 & 0 \end{bmatrix}, A_-:=\begin{bmatrix} 0 & 0 & 0 \\ -1 & 0 & 0 \\ 0 & 1 & 0 \end{bmatrix}, \\
+		f_+(x_1,q) = \left(\cos(q)-1\right)x_1, \\ 
+		f_-(x_1,q) = \left(\cos(q)+1\right)x_1.
+	\end{gathered}
 \]
-Then 
+Let $\hat{x}$ be the estimate of $x$. Define $e:=\hat{x}-x$ and
 \[
-	\dot{z} = A_o z + T(q)\beta, \ y= C_oz,
+	\Delta f:= f_\pm(\hat{x}_1,q)-f_\pm(x_1,q).
+\]
+Then for all $q$ we have 
+\[
+	|\Delta f| = \left(1-|\cos(q)|\right)|e_1|
 \]
 and 
 \[
-	A_oT(q) = T(q)A(q), \ C_oT(q) = C.
+	|\Delta f|^2 = e_1^2 - \gamma(q)e_1^2, 
 \]
-Note that the matrix $T(q)$ is singular for $\cos(q)=0$, and for $\cos(q)\ne0$ its inversion is given by
-\[
-	T^{-1}(q) = \begin{bmatrix} \frac{\sqrt{2}}{a_{1}\cos(q)} & 0 & \frac{\sqrt{2}}{2}\\ 0 & 1 & 0\\ 0 & 0 & \frac{\sqrt{2}}{2} \end{bmatrix}.
-\] 
+where $\gamma(q)=|\cos(q)|\left(2 - |\cos(q)|\right)$. Not that $0\le \gamma(q) \le 1$, where $\gamma(q)=0$ only when $\cos(q)=0$.
 
-\noindent\emph{The first attempt}
+We now design our switched observer as
+\[
+	\dot{\hat{x}} = A_\pm \hat{x} + \beta + B_f f_\pm(\hat{x}_1,q) - L_\pm(\hat{y}-y),
+\]
+where 
+\[
+	L_{\pm} = \begin{cases}
+		L_+ \text{ for } \cos(q)\ge0, \\
+		L_- \text{ for } \cos(q)<0
+	\end{cases}
+\]
+and the values $L_+$ and $L_-$ are to be defined later. The commutation between different dynamics of the observer is governed by $q(t)$, which is a measured signal.
 
-For the state $z$ an observer can be designed as
-\[
-	\dot{\hat{z}} = A_o \hat{z} + T(q) \beta -L_o\tilde{y},
-\]
-where for all variables $\tilde{\left(\cdot\right)}:=\hat{\left(\cdot\right)}-\left(\cdot\right)$, and the matrix $L_o$ is such that for the matrix
-\[
-	F_o:=A_o -L_o C_o
-\]
-there exist matrices $P>0$ and $Q>0$ such that
-\[
-	F_o^\top P + PF_o^\top = -Q.
-\]
-The observation error dynamics is
-\[
-	\dot{\tilde{z}} = F_o \tilde{z}
-\]
-and for the Lyapunov function $V_o(\tilde{z}):=\tilde{z}^\top P \tilde{z}$ we have
-\[
-	\dot{V}_o = -\tilde{z}^\top Q\tilde{z}.
-\]
+\bigskip
 
-Applying the inverse change of coordinates, $x=T^{-1}(q)z$, the corresponding observer for $x$ is given by
-\begin{equation} \label{eq:ObsX}
-	\dot{\hat{x}} = A(q)\hat{x} + \beta - L(q)\tilde{y},
-\end{equation}
-where $L(q):= T^{-1}(q)L_o$. Unfortunately, this inverse change of coordinates does not exist for $\cos(q)=0$, and, consequently, the vector of gains $L(q)$ is not defined for these values of $q$.
-
-What happens with the Lyapunov function? For the same function $V_o$ we have
+The error dynamics for $\cos(q)\ge0$ is 
+\[
+	\dot{e} = \left(A_+-L_+C\right)e + B_f \Delta f.
+\]
+Define $V_+ := e^\top P_+ e$ for some $P_+>0$. Then for $\cos{q}\ge 0$ we have
 \[
 	\begin{aligned}
-		V_o &= \tilde{z}^\top P \tilde{z} = \tilde{x}^\top T^\top(q)PT(q) \tilde{x}, \\
-		\dot{V}_o &= - \tilde{z}^\top Q \tilde{z} = -\tilde{x}^\top T^\top(q)QT(q) \tilde{x},
+		\dot{V}_+ =& e^\top\left(\left(A_+-L_+C\right)^\top P_+ + P_+ \left(A_+-L_+C\right)\right) e 
+		+ 2e^\top P_+ B_f \Delta f + \alpha\left(\Delta f\right)^2 - \alpha\left(\Delta f\right)^2 \\
+		=& \begin{bmatrix} e^\top & \Delta f \end{bmatrix}^\top
+		\underbrace{\begin{bmatrix} \left(A_+-L_+C\right)^\top P_+ + P_+ \left(A_+-L_+C\right) + \alpha I & P_+B_f \\
+		B_f^\top P_+ & -\alpha \end{bmatrix}}_{M_+}
+		\begin{bmatrix} e \\ \Delta f \end{bmatrix} - \alpha e^\top Q(q) e,
 	\end{aligned}
 \]
-and we still have $\dot{V}_o<0$ for all $|\tilde{x}|\ne 0$ and $\cos{q}\ne 0$, but we cannot use this function to analyze $\tilde{x}$ since the matrix $T^\top(q)PT(q)$ is not positive definite for $\cos(q)=0$ and $V_o$ is not a proper Lyapunov function for $\tilde{x}$. Moreover, the observer \eqref{eq:ObsX} is still undefined for $\cos(q)=0$.
+where $\alpha >0$ and
+\[
+	Q(q) := \begin{bmatrix} \gamma(q) & 0  & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{bmatrix} \ge 0.
+\]
+Let $P_+$, $L_+$ and $\alpha$ be a solution of the LMI $M_+\le 0$. Then we have $\dot{V}_+\le -\alpha e^\top Q(q) e$.
 
 \bigskip
 
-\noindent\emph{The second attempt}
-
-Choose sufficiently small $0<\delta<1$ and define two sets:
+The error dynamics for $\cos(q)<0$ is
 \[
-	\mathcal{Q}_+ := \left\{\,q \mid |\cos(q)|\ge \delta \,\right\}, \ \mathcal{Q}_0 := \left\{\,q \mid |\cos(q)|< \delta \,\right\}.
+	\dot{e} =  \left(A_- - L_-C\right)e + B_f \Delta f.
 \]
-Redefine the gains vector $L(q)$ in \eqref{eq:ObsX} as 
-\begin{equation} \label{eq:newL}
-	L(q) := \begin{bmatrix} \frac{\sqrt{2}}{2}l_{o3} \\ l_{o2} \\  \frac{\sqrt{2}}s{2}l_{o3}\end{bmatrix} + 
-			\operatorname{ind}(q)\begin{bmatrix} \frac{\sqrt{2}}{a_1}l_{o1} \\0 \\0 \end{bmatrix} 
-			= L_1 + \operatorname{ind}(q)L_2,
-\end{equation}
-where $l_{oi}$ is the $i$-th component of the vector $L_o$ and the indicator function $\operatorname{ind}(q)$ is defined as
+Define $V_- := e^\top P_- e$ for some $P_->0$. Then for $\cos{q}< 0$ we have
 \[
-	\operatorname{ind}(q) := \begin{cases}
-	\frac{1}{\cos(q)} \text{ for } q\in\mathcal{Q}_+, \\
-	0 \text{ for } q\in\mathcal{Q}_0.
-	\end{cases}
+	\begin{aligned}
+		\dot{V}_- =& e^\top\left(\left(A_--L_-C\right)^\top P_- + P_- \left(A_--L_-C\right)\right) e 
+		+ 2e^\top P_- B_f \Delta f + \alpha\left(\Delta f\right)^2 - \alpha\left(\Delta f\right)^2 \\
+		=& \begin{bmatrix} e^\top & \Delta f \end{bmatrix}^\top
+		\underbrace{\begin{bmatrix} \left(A_--L_-C\right)^\top P_- + P_- \left(A_--L_-C\right) + \alpha I & P_-B_f \\
+		B_f^\top P_- & -\alpha \end{bmatrix}}_{M_-}
+		\begin{bmatrix} e \\ \Delta f \end{bmatrix} - \alpha e^\top Q(q) e.
+	\end{aligned}
 \]
-For the coordinates $z$ we have
+Define the unitary matrix
 \[
-	\dot{\tilde{z}} = A_o\tilde{z} -\begin{bmatrix} 0 \\ l_{o2} \\ l_{03} \end{bmatrix}C_o - \operatorname{ind}(q)\begin{bmatrix} l_{o1}\cos(q) \\0 \\ 0\end{bmatrix}C_o.
+	R:=\begin{bmatrix} -1 & 0 & 0 \\  0 & 1 & 0 \\ 0 & 0 & 1 \end{bmatrix}.
 \]
-Then 
-\begin{itemize}
-	\item for $q\in\mathcal{Q}_+$ it holds $L(q) = T^{-1}(q)L_0$ and 
-	\[
-		\begin{aligned}
-			\dot{\tilde{x}} &= \left(A(q)-L(q)C\right) \tilde{x} = T^{-1}(q) F_o T(q)\tilde{x}, \\
-			\dot{\tilde{z}} &= F_o \tilde{z}.
-		\end{aligned}
-	\]
-	\item for $q\in\mathcal{Q}_0$ we have $L(q)=L_1$ and
-	\[
-		\begin{aligned}
-			\dot{\tilde{x}} &= \left(A(q)-L_1C\right) \tilde{x}, \\
-			\dot{\tilde{z}} &= F_1 \tilde{x},
-		\end{aligned}
-	\]
-	where 
-	\[
-		F_1 := A_o - \begin{bmatrix} 0 \\ l_{o2} \\ l_{03} \end{bmatrix}C_o.
-	\]
-\end{itemize}
-
-
-
-Define the Lyapunov function
+It holds $A_- = RA_+R$, $CR=C$, and $RB_f=B_f$. Then it follows that the choice
 \[
-	V(\tilde{x}) = \tilde{x}^\top \left(T^\top(q)PT(q) + \gamma I\right)\tilde{x} = 
-	\tilde{z}^\top P\tilde{z} + \gamma\tilde{x}^\top\tilde{x},
+	P_- = RP_+R>0, \ L_- = RL_+,
 \]
-where $\gamma>0$. There exist $\alpha_1>0$ and $\alpha_2>0$ such that
+yields
 \[
-	\alpha_1|\tilde{x}|^2 \le V \le \alpha_2|\tilde{x}|^2.
+	M_- = \operatorname{diag}(R,1)M_+\operatorname{diag}(R,1) \le 0.
 \]
-
-Consider the case $q\in\mathcal{Q}_+$. Then the time derivative of $V$ is given by
-\[
-	\dot{V}_+ = - \tilde{x}^\top \left(T^\top(q) Q T(q) + \gamma R_+(q)\right) \tilde{x},
-\]
-where $R_+(q):=T^{-1}(q) F_o T(q) + T^\top(q) F_o^\top T^{-\top}(q)$. Let $\lambda_{min}(Q)$ be the smallest eigenvalue of $Q$ and $\lambda_{max}(R_+)$ be the largest eigenvalue of $R_+(q)$ over $\mathcal{Q}_+$. Choose 
-\[
-	\gamma = \frac{\lambda_{min}(Q)\sigma_{min}^2(T)}{2\lambda_{max}(R_+)},
-\]
-where $\sigma_{min_+}(T)$ is the smallest singular value of $T(q)$ over $\mathcal{Q}_+$ given by
-\[
-	\sigma_{min_+}^2 = \min_{q\in \mathcal{Q}_+}\lambda_{min}(T^\top(q)T(q)) = 1 + \frac{a_1^2\delta^2}{2} - \frac{\sqrt{a_1^4\delta^4+4}}{2} >0.
-\]
-Then we obtain
-\[
-	\dot{V}_+ \le - \frac{\lambda_{min}(Q)\sigma_{min}^2(T)}{2}|\tilde{x}|^2 \le -\frac{\lambda_{min}(Q)\sigma_{min}^2(T)}{2\alpha_2}V = -\kappa_1V.
-\]
-
-Next consider the case $q\in\mathcal{Q}_0$. The time derivative of $V$ is given by
-\[
-	\dot{V}_0 = \tilde{x}^\top\left( T^\top(q) \left(F_1^\top P + PF_1\right) T(q) + \gamma  R_0(q)\right)\tilde{x} =: \tilde{x}^\top \overline{R}_0(q) \tilde{x},
-\]
-where $R_0(q):=\left(A(q)-L_1C\right)^\top + \left(A(q)-L_1C\right)$. Let $\lambda_{max}(\overline{R}_0(q))$ be the largest eigenvalue of $\overline{R}_0(q)$ over $\mathcal{Q}_0$. Then
-\[
-	\dot{V}_0 \le \lambda_{max}(\overline{R}_0(q)) |\tilde{x}|^2 \le \frac{\lambda_{max}(\overline{R}_0(q))}{\alpha_1}V= \kappa_2V.
-\]
-
-To summarize, we have
-\[
-	\begin{cases}
-		\dot{V} \le -\kappa_1V \text{ for } q\in \mathcal{Q}_+, \\
-		\dot{V} \le \kappa_2V \text{ for } q\in \mathcal{Q}_0. \\
-	\end{cases}
-\]
-Next we make the following assumption.
-
-\noindent\emph{Assumption}. For the trajectory $q(t)$ there exists $T_q>0$ such that for all $t_0>0$
-\begin{itemize}
-	\item during the time interval $[t_0 \ t_0+T_q]$ the trajectory $q(t)$ travels between the sets $\mathcal{Q}_+$ and $\mathcal{Q}_0$ finite number of times;
-	\item during the time interval $[t_0 \ t_0+T_q]$ the duration of time when $q\in\mathcal{Q}_+$ defined as $T_{q_+}$ and the duration of time when $q\in\mathcal{Q}_0$ defined as $T_{q_0}$ are such that
-	\[
-		\kappa_2T_{q_0} - \kappa_1T_{q_+} \le -\kappa_3T_q
-	\]
-	for some $\kappa_3>0$, where $T_{q_0} + T_{q_+} = T_q$.
-\end{itemize}
-
-With this assumption for any $t_0$ we have
-\[
-	V(t_0+T_q) \le \exp(-\kappa_1T_{q_+})\exp(\kappa_2T_{q_0})V(t_0) \le e^{-\kappa_3T_q}V(t_0)
-\]
-and 
-\[
-	V(t) \le e^{\kappa_2T_{q_0}}V(t_0) \ \forall t\ge t_0.
-\]
-Thus, $V(t) \to 0$.
+Thus it holds $\dot{V}_-\le - \alpha e^\top Q(q) e$. Therefore, in both cases, the switched dynamics is stable for each fixed value of the commutation signal. Let us analyze what happens under switching.
 
 \bigskip
 
-\noindent\emph{The third attempt}
+To this end assume now that the trajectory $q(t)$ crosses the border $\cos(q)=0$ in isolated points only. Define the Lyapunov function 
+\[
+	V(e) = \begin{cases}
+		V_+(e) \text{ for } \cos(q) \ge 0, \\
+		V_-(e) \text{ for } \cos(q) < 0.
+	\end{cases}
+\]
+Let $\lambda_{m}$ and $\lambda_{M}$ be the minimum and the maximum eigenvalues of the matrix $P_+$, respectively, and note that $P_-$ has the same eigenvalues. It holds
+\[
+	\lambda_{m} |e|^2 \le V(e) \le \lambda_{M} |e|^2.
+\]
+and
+\[
+	\dot{V} \le -\alpha e^\top Q(q) e \le -\alpha \gamma(q)e^\top e \le -\frac{\alpha \gamma(q)}{\lambda_{M}}V = -\eta(q)V.
+\]
+Let $\lambda_{\Delta}\ge0$ be the  maximum absolute value of the eigenvalues of the matrix $P_+ - RP_+R$. Then we have that during the commutation the variation of the Lyapunov function admits the following upper estimate:
+\[
+	|\Delta V| = |V_+ - V_-| = |e^\top \left(P_+-RP_+R\right)e| \le \lambda_{\Delta} e^\top e \le \mu V,
+\]
+where
+\[
+	\mu:= \frac{\lambda_{\Delta}}{\lambda_{m}}.
+\]
 
-We can also consider a finite-time solution valid for $q\in\mathcal{Q}_+$ add assume that the trajectory spends enough time outside of $\mathcal{Q}_0$.
+To proceed we have to impose an assumption on the trajectory $q(t)$: the trajectory should not cross singular points, where $\cos(q(t))=0$, too often and should not remain in a small vicinity of these points (having $\gamma(q)$ small) for long time. More formally, this assumption can be formulated as follows.
 
+\noindent\emph{Assumption}.
 
+For the trajectory $q(t)$ there exist $T_q>0$ and $\kappa>0$ such that for all $t_0$ it holds:
+\begin{itemize}
+	\item during the time interval $[t_0, \; t_0+T_q]$ the trajectory $q(t)$ crosses the border $\cos(q)=0$ not more then $n_q$ times;
+	\item during the time interval $[t_0, \; t_0+T_q]$ the trajectory $q(t)$ satisfies
+	\[
+		\int_{t_0}^{t_0+T_q}\eta(q(\tau))d\tau \ge n_q\ln\left(1+\mu\right) + \kappa T_q.
+	\]
+\end{itemize}
 
+If the Assumption holds, then for any $t_0$ we have
+\[
+	V(t_0+T_q) \le V(t_0) \left(1+\mu\right)^{n_q} e^{-\int_{t_0}^{t_0+T_q}\eta(q(\tau))d\tau} \le e^{-\kappa T_q} V(t_0) <V(t_0)
+\]
+and for all $t\in [t_0, \; t_0+T_q]$
+\[
+	V(t) \le V(t_0)\left(1+\mu\right)^{n_q}.
+\]
+Then $V(t) \to 0$, and $\kappa$ may be considered as the exponential rate of convergence.
+
+\noindent\emph{Remark}. The Assumption can be relaxed by choosing $T_q$ and $\kappa$ non-uniformly in $t_0$ yielding asymptotic convergence instead of exponential. 
+
+Things TODO:
+\begin{itemize}
+\item Feasibility analyzes for the LMI;
+\item More general problem statement  
+\end{itemize}
