@@ -3,6 +3,7 @@ g = 9.81; % gravity
 k = 0.0369; % the motor torque constant
 R = 0.608; % resistance
 Umax = 24; % max. voltage
+Imax= Umax/R; % approx. max current
 
 lp = 0.35; % l of the pendulum
 mp = 0.350; % mass of the pendulum
@@ -32,7 +33,7 @@ mlg = (mp*lp + mr*lr)*g;
 mechParams = [J, Jr, Cp, Cr, mlg]; 
 
 % Thete sensor displacemnet
-thetaDisplacement = 0.1;
+thetaDisplacement = 0.05;
 
 %% Initial values
 theta0=-0.1;
@@ -55,17 +56,17 @@ Blin = [0; -k/J; k*(J+Jr)/J/Jr];
 
 % basic LQR
 Rlqr=1;
-Qlqr=0.1*diag([3 2 1]);
+Qlqr=0.3*diag([3 2 2]);
 Klqr = lqr(Alin,Blin,Qlqr,Rlqr);
 
 %% Differentiators
 ap=0.75;
-kp=poly([-3 -4]);
+kp=poly([-7 -8]);
 kp=kp(2:end);
 xp0=[theta0;0];
 
 ar=0.75;
-kr=poly([-3 -4]);
+kr=poly([-7 -8]);
 kr=kr(2:end);
 xr0=[thetaRW0;0];
 
