@@ -80,9 +80,6 @@ volatile int32_t epos_position=0;
 volatile int32_t capture3=0, capture3_prev=0, encoder3=0;
 
 volatile uint32_t useconds=0, useconds_prev=0, time_of_start=0;
-volatile float hatXp1 = 0., hatXp2 = 0., hatXr1 = 0., hatXr2 = 0.;
-
-volatile float offset = 0.;
 
 /* USER CODE END PV */
 
@@ -240,24 +237,16 @@ void chirp_current_open_loop(float amplitude, float start_freq, float end_freq, 
     float t = (useconds - time_of_start) * 0.000001;
     float phi = (start_freq + (end_freq - start_freq) * (t*1000.) / (float) duration_ms) * t;
     float current_ref = sin(2. * M_PI * phi) * amplitude;
-
-    if (useconds < time_of_start + .666*duration_ms * 1000L) {
     set_current(current_ref);
-    } else {
-    set_current(0);
-    }
 
     float current_measured = get_current();
     float mesQr = get_rw_angle();
     float mesQ  = get_pendulum_angle(0);
 
-    float ax,ay,az,bx,by,bz;
-    get_adxl_xyz(adxl_device_a_address, &ax, &ay, &az);
-    get_adxl_xyz(adxl_device_b_address, &bx, &by, &bz);
 
-    sprintf(buff, "%3.5f, %1.3f, %1.3f, %3.4f, %3.4f, %3.4f, %3.4f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, current_ref, current_measured, mesQr, mesQ, ax, ay, bx, by);
+    sprintf(buff, "%3.6f, %3.6f, %3.6f, %3.6f, %3.6f\r\n", (useconds - time_of_start) * 1e-6, current_ref, current_measured, mesQr, mesQ);
     CDC_Transmit_FS((uint8_t *)buff, strlen(buff));
-    while (DWT_us() - useconds < 1000);
+    while (DWT_us() - useconds < 2000);
   }
   set_current(0);
 }
@@ -303,8 +292,8 @@ int main(void)
 
   HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
 
-  adxl_init(adxl_device_a_address);
-  adxl_init(adxl_device_b_address);
+//  adxl_init(adxl_device_a_address);
+//  adxl_init(adxl_device_b_address);
 
   can_configure();
   eposReset();
@@ -318,13 +307,12 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  float ax = 0, bx = 0, ay = 0, by = 0, az = 0, bz = 0;
 
-  float hatX1 = 0, hatX2 = 0, hatX3 = 0;
+  float hatX1  = 0., hatX2  = 0., hatX3  = 0.;
+  float hatXp1 = 0., hatXp2 = 0., hatXr1 = 0., hatXr2 = 0.;
+  float Z = .0;
 
-  while (1)
-  {
-
+  while (1) {
     if (0 && system_task) {
       HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
       HAL_Delay(3000);
@@ -332,25 +320,19 @@ int main(void)
       system_task = 0;
     }
 
-
-    const float mu = 2.;
-    float mesQ = get_pendulum_angle(1);
-//    float mesQ = atan2(ax-mu*bx, -(ay-mu*by));
-
-    if (system_task != 2) {
-      char buff2[255];
-      sprintf(buff2, "working ok, timestamp: %lu, task: %d %f\r\n", DWT_us(), system_task, mesQ);
-      CDC_Transmit_FS((uint8_t *) buff2, strlen(buff2));
-      set_current(0);
-    }
-
-
+    float mesQ  = get_pendulum_angle(1);
     float mesQr = get_rw_angle();
-    float mesI = get_current();
+    float mesI  = get_current();
 
     useconds_prev = useconds;
     useconds = DWT_us();
 
+    if (system_task != 2) {
+      char buff2[255];
+      sprintf(buff2, "working ok, timestamp: %lu, task: %d %f %f\r\n", DWT_us(), system_task, mesQ, mesQr);
+      CDC_Transmit_FS((uint8_t *) buff2, strlen(buff2));
+      set_current(0);
+    }
 
   /* USER CODE END WHILE */
 
@@ -358,24 +340,20 @@ int main(void)
 
     if (1 == system_task) {
       hatX1 = mesQ;
-      hatX2 = hatX3 = 0;
+      hatX2 = hatX3 = 0.;
 
       hatXp1 = mesQ;
       hatXr1 = mesQr;
-      offset = -.02;
+      hatXr2 = hatXp2 = 0.;
 
       if (fabs(mesQ) < .1) {
         system_task = 2;
         time_of_start = useconds;
-        char buff2[255] = "#time, current, target_x, x, q\r\n";
+        char buff2[255] = "#time(s),reference current(A),current(A),rw angle(rad),pendulum angle(rad)\r\n";
         CDC_Transmit_FS((uint8_t *) buff2, strlen(buff2));
       }
     }
     if (2 == system_task) {
-      const float oa = .0003;
-      offset = (1.-oa)*offset + oa*mesQ;
-      mesQ -= offset;
-
       float dt = (useconds - useconds_prev) / 1000000.; // seconds
 
       const float a = .75;
@@ -385,69 +363,88 @@ int main(void)
       const float g = 9.81;
       const float k = 0.0369;
       const float Jr = 0.001248;
-      const float J = .7*.160*.160;
-      const float ml = .7*.160;
+      const float mr = .35;
+      const float lr = .22;
 
-      const float K[] = {139.312999, 20.026980, 0.290980};
+      const float Jp = 0.0038;
+      const float mp = 0.578;
+      const float lp = 0.10;
 
-      float sinQ = sin(mesQ);
+      const float J = Jp + mr*lr*lr + mp*lp*lp;
+      const float ml = mp*lp + mr*lr;
 
-      float ep = hatXp1 - mesQ;
+//      const float K[] = {139., 20., 0.29};
+      const float K[] = {581.6, 83.4, 1.18};
+//      const float L[] = {52., 278., -31.};
+//      const float L[] = {20.6260, 121.5939, -6.7414};
+
+//      float qhatX1 = ( roundf(hatX1*5000./M_PI) ) * (M_PI/5000.);
+//      float qhatX3 = ( roundf(hatX3*5000./M_PI) ) * (M_PI/5000.);
+
+
+      float sinQ = sin(mesQ - hatX3);
+      float friction = 0.1;
+      float effI = mesI - (hatXr2 > 0 ? friction : -friction);
+
+      float ep = hatXp1 - (mesQ - hatX3);
       float dhatXp1 = hatXp2                  - k1*pow(fabs(ep),       a)*(ep>0?1.:-1.);
-      float dhatXp2 = -k/J*mesI + ml*g/J*sinQ - k2*pow(fabs(ep), 2.*a-1.)*(ep>0?1.:-1.);
+      float dhatXp2 = -k/J*effI + ml*g/J*sinQ - k2*pow(fabs(ep), 2.*a-1.)*(ep>0?1.:-1.);
       hatXp1 += dt*dhatXp1;
       hatXp2 += dt*dhatXp2;
 
       float er = hatXr1 - mesQr;
       float dhatXr1 = hatXr2                             - k1*pow(fabs(er),       a)*(er>0?1.:-1.);
-      float dhatXr2 = (J+Jr)/(J*Jr)*k*mesI - ml*g/J*sinQ - k2*pow(fabs(er), 2.*a-1.)*(er>0?1.:-1.);
+      float dhatXr2 = (J+Jr)/(J*Jr)*k*effI - ml*g/J*sinQ - k2*pow(fabs(er), 2.*a-1.)*(er>0?1.:-1.);
       hatXr1 += dt*dhatXr1;
       hatXr2 += dt*dhatXr2;
 
 
+      float a1 = ml*g/J;
+      float b1 = -k/J;
+      float L = -.033;
+
+      Z += dt*(-a1*sinQ-b1*effI);
+      hatX3 = L*(hatXp2 + Z);
+
+
+#if 0
       float ytilde = hatX1 + hatX3 - mesQ;
 
-      float dhatX1 = hatX2 - 546.*ytilde;
-      float dhatX2 = -k/J*mesI + ml*g/J*sinQ -1100.*ytilde;
-      float dhatX3 = 508.*ytilde;
+      float dhatX1 = hatX2 - L[0]*ytilde;
+      float dhatX2 = b1*(mesI - (hatXr2 > 0 ? friction : -friction)) + a1*sinQ - L[1]*ytilde;
+      float dhatX3 = -L[2]*ytilde;
 
       hatX1 += dt*dhatX1;
       hatX2 += dt*dhatX2;
+      if (fabs(ytilde)>4*2.*M_PI/10000.)
       hatX3 += dt*dhatX3;
+#endif
 
-      float refI = K[0]*mesQ + K[1]*hatXp2 + K[2]*hatXr2;
-//      float refI = K[0]*hatX1 + K[1]*hatXp2 + K[2]*hatXr2;
+
+//      int int_hatX3 = (int)(hatX3 * 10000./(2.*M_PI) + 5000);
+//      hatX3 = (int_hatX3 - 5000) * (2.*M_PI/10000.);
+
+
+
+//      float refI = K[0]*mesQ + K[1]*hatXp2 + K[2]*hatXr2;
+      float refI = K[0]*(mesQ-hatX3) + K[1]*hatXp2 + K[2]*hatXr2;
       if (refI >  5.) refI =  5.;
       if (refI < -5.) refI = -5.;
 
       set_current(refI);
 
-      float encoder_angle = get_pendulum_angle(1);
-      if (fabs(encoder_angle) > .3) {
+      if (fabs(get_pendulum_angle(1)) > .3) {
         system_task = 9;
-        offset = 0.;
         set_current(0);
       }
 
-      char buff[255] = { 0 };
-      sprintf(buff, "%3.5f, %1.3f, %3.4f, %3.4f, %3.4f, %3.4f\r\n", (useconds - time_of_start) * 1e-6, refI, mesQr, encoder_angle, mesQ, hatX3);
+      char buff[1024] = { 0 };
+//      sprintf(buff, "%3.5f, %3.5f, %3.5f, %3.5f, %3.5f, %3.5f, %3.5f, %3.5f, %3.5f, %3.5f, %3.5f, %3.5f\r\n", (useconds - time_of_start)*1e-6, refI, mesI, mesQr, mesQ, hatX1, hatX2, hatX3, hatXp1, hatXp2, hatXr1, hatXr2);
+       sprintf(buff, "%3.6f, %3.6f, %3.6f, %3.6f, %3.6f\r\n", (useconds - time_of_start)*1e-6, refI, mesI, mesQr, mesQ);
       CDC_Transmit_FS((uint8_t *) buff, strlen(buff));
     }
 
-    float buf[3];
-    const float cf_speed = .1;
-    while (DWT_us() - useconds < 4900) {
-        get_adxl_xyz(adxl_device_a_address, buf, buf+1, buf+2);
-        ax = (1-cf_speed)*ax + cf_speed*buf[0];
-        ay = (1-cf_speed)*ay + cf_speed*buf[1];
-        DWT_Delay_us(10);
-        get_adxl_xyz(adxl_device_b_address, buf, buf+1, buf+2);
-        bx = (1-cf_speed)*bx + cf_speed*buf[0];
-        by = (1-cf_speed)*by + cf_speed*buf[1];
-        DWT_Delay_us(10);
-    }
-
-//    while (DWT_us() - useconds < 5000);
+    while (DWT_us() - useconds < 2000);
   }
   /* USER CODE END 3 */
 

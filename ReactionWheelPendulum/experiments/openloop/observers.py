@@ -58,10 +58,12 @@ ax1.set_xlabel('Time, sec')
 dt = [time[i+1]-time[i] for i in range(len(time)-1)]
 #ax1.plot(time[1:], dt, color='black',  label='dt')
 
+ax1.plot(time,       ref,  label='reference current')
+ax1.plot(time,       I,  label='measured current')
 ax1.plot(time,        Qr,  color='green', label='RW angle, rad')
-ax1.plot(time[1:],  hatQr, color='black', label='observer RW angle, rad')
+#ax1.plot(time[1:],  hatQr, color='black', label='observer RW angle, rad')
 ax1.plot(time,         Q,  color='red',   label='pend angle, rad')
-ax1.plot(time[1:],  hatQ,  color='blue',  label='observer pend angle, rad')
+#ax1.plot(time[1:],  hatQ,  color='blue',  label='observer pend angle, rad')
 
 ax1.legend()
 plt.show()
