@@ -634,6 +634,7 @@ $$
 
 \subsection{HOMD + смещение}
 
+\iffalse
 Совместим HOMD и наблюдатель смещения. Для этого обозначим ошибку наблюдения через $e_p = \hat{x}_{p 1} - (\theta-\hat{d})$, тогда наблюдатель будет выглядеть следующим образом:
 
 $$
@@ -646,30 +647,45 @@ $$
 \right.
 $$
 
+\fi
 
 То есть, у нас есть настоящие переменные системы:
 
 $$
 \left\{
 \begin{array}{l}
-\dot{x_1} = x_2\\
-\dot{x_2} = f(x_1, I)\\
-\dot{x_3} = 0
+\dot{x}_1 = x_2\\
+\dot{x}_2 = f(x_1, I) = -\frac{k}{J}I + \frac{mlg}{J}\sin(x_1)\\
+\dot{x}_3 = 0
 \end{array}
 \right.
 $$
 
 
-Мы к ним строим наблюдатель:
+Мы к ним строим наблюдатель ($e_p := \hat{x}_1 + \hat{x}_3 - (x_1+x_3) = e_1 + e_3$):
 $$
 \left\{
 \begin{array}{l}
-\dot{\hat{x}}_1 = x_2 - k_1\homd{e_p}^{\alpha} \\
-\dot{\hat{x}}_2 = f(x_1+x_3 - \dot{\hat{x}}_3, I) - k_2\homd{e_p}^{2\alpha-1}\\
+\dot{\hat{x}}_1 = \hat{x}_2 - k_1\homd{e_p}^{\alpha} \\
+\dot{\hat{x}}_2 = f(\hat{x}_1, I) - k_2\homd{e_p}^{2\alpha-1}\\
 \dot{\hat{x}}_3 = -L k_2\homd{e_p}^{2\alpha-1}
 \end{array}
 \right.
 $$
+
+Динамика ошибок примет вид:
+$$
+\left\{
+\begin{array}{l}
+\dot{e}_1 = e_2 - k_1\homd{e_1+e_3}^{\alpha} \\
+\dot{e}_2 = \frac{mlg}{J}(\sin(\hat{x}_1) - \sin(x_1) ) - k_2\homd{e_1+e_3}^{2\alpha-1}\\
+\dot{e}_3 = -L k_2\homd{e_1+e_3}^{2\alpha-1}
+\end{array}
+\right.
+$$
+
+(вместо $\sin(\hat{x}_1)$ мы можем вычислять $\sin(x_1+x_3 -\hat{x}_3)$, тогда во второй строчке будет выражение, зависящее от $x_1$ и $e_3$)
+
 
 
 
