@@ -647,5 +647,30 @@ $$
 $$
 
 
+То есть, у нас есть настоящие переменные системы:
+
+$$
+\left\{
+\begin{array}{l}
+\dot{x_1} = x_2\\
+\dot{x_2} = f(x_1, I)\\
+\dot{x_3} = 0
+\end{array}
+\right.
+$$
+
+
+Мы к ним строим наблюдатель:
+$$
+\left\{
+\begin{array}{l}
+\dot{\hat{x}}_1 = x_2 - k_1\homd{e_p}^{\alpha} \\
+\dot{\hat{x}}_2 = f(x_1+x_3 - \dot{\hat{x}}_3, I) - k_2\homd{e_p}^{2\alpha-1}\\
+\dot{\hat{x}}_3 = -L k_2\homd{e_p}^{2\alpha-1}
+\end{array}
+\right.
+$$
+
+
 
 \end{document}
