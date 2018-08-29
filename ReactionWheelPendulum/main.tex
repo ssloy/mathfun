@@ -693,6 +693,135 @@ $$
 
 \end{itemize}
 
+\newpage
+
+\subsection{Доказательство устойчивости}
+
+Перепишем динамику ошибок в следующем виде:
+\begin{equation}
+\label{eq:1}
+\left\{
+\begin{aligned}
+\dot e_p&=(-Lk_2|e_p|^{\alpha_2-1}-k_1|e_p|^{\alpha_1-1})e_p+e_2  \\
+\dot e_2&= - k_2|e_p|^{\alpha_2-1}e_p+Mf(t)e_3\\
+\dot e_3&=  -Lk_2|e_p|^{\alpha_2-1}e_p
+\end{aligned}
+\right.
+\end{equation}
+
+На данный момент мы предполагаем $f(t)\equiv 1$. Позднее мы попробуем ослабить это предположение, введя ограничение типа $1-c<f(t)<1+c$.
+
+
+
+{\bf Лемма.} Пусть $\alpha_1<1$, $\alpha_2\leqslant2\alpha_1-1$, $L\in (0,\frac{1}{\sqrt{2}})$, $M>1$; $k_1,k_2>0$, $f(t)\equiv 1$. 
+Тогда существует окрестность нуля $\mathbb R^3$, в которой система \eqref{eq:1} устойчива.
+
+{\bf Замечание.} Условия этой леммы покрывают случай нашей железки: $L\approx 0.033, M\approx100, k_1=7, k_2=12, \alpha_1=0.75, \alpha_2=\alpha_3=0.5, k_3=Lk_2 $.
+
+{\bf Идея доказательства.}
+
+Для начала введём следующие обозначения:
+$$
+B := Lk_2|e_p|^{\alpha_2-1} \qquad  s:=k_1|e_p|^{\alpha_1-1}.
+$$
+Вполне очевидно, что $B \gg s \gg 1$ в некой окрестности нуля.
+Теперь заметим, что система \eqref{eq:1} имеет вид $\dot{\vec{e}} = A\vec{e}$, где $\vec{e} = (e_p, e_1, e_2)^\top$, а матрица выглядит следующим образом:
+$A=\begin{pmatrix}-B-s&1&0\\-B/L&0&M\\-B&0&0\end{pmatrix}$.
+
+Идея состоит в том, чтобы произвести замену переменных, в которых функция Ляпунова будет иметь вид диагональной квадратичной формы.
+Предложенная замена выглядит следующим образом:
+$$
+\begin{pmatrix} e_p\\e_2\\e_3
+\end{pmatrix}=C
+\begin{pmatrix} y_1\\y_2\\y_3
+\end{pmatrix},
+$$
+где 
+$$
+C=\begin{pmatrix}1&0&0\\1/L&1&L\\1&L/M&1 \end{pmatrix}.
+$$
+Заметим, что при этой замене $y_1=e_p$, и что наши большая и малая величины $B$ и $s$ по-прежнему выражаются только через одну переменную $y_1$, то есть
+$B=Lk_2|y_1|^{\alpha_2-1}$ and $s=k_1|y_1|^{\alpha_1-1}$.
+
+Утверждается, что следующая функция:
+$G(y_1,y_2,y_3):=K y_1^2+ y_2^2 + M y_3^2$ является функцией Ляпунова (при выборе достаточно большой константы $K$) в окрестности начала координат.
+
+{\bf Конец основной идеи.}
+
+
+В новых координатах система имеет динамику вида $\dot{\vec{y}} = P\vec{y}$, где
+$$
+ P  := C^{-1}AC=
+ \begin{pmatrix}
+ \frac1L-B-s&1&L
+ \\[1mm]
+\frac{M(Ls+L^2M-L^3s+L^2-1)}{L^2(M-L^2)}&\frac{M(2L^2-1)}{L(M-L^2)} &M\frac{L^2 + M - 1}{M-L^2}
+ \\[1mm]
+\frac{  LMs-Ls+L^2M-M+1}{L(M-L^2)}&-\frac{L^2 + M - 1}{M-L^2}&-\frac{L(2M-1)}{M-L^2} \end{pmatrix}
+:= \begin{pmatrix}-p_{11}&p_{12}&p_{13}\\p_{21}&-p_{22}&p_{23}\\p_{31}&p_{32}&-p_{33}\end{pmatrix}
+$$
+
+Для начала выберем окрестность нуля, где выполняется следующее неравенство: $s>\frac{1}{L}$.
+Диагональные элементы матрицы $P$ отрицательны в этой окрестности: $p_{11}>B$, $p_{22}$, $p_{23}>0$.
+Заодно заметим, что $p_{23}=-Mp_{32}$.
+
+Посчитаем производную функции $G$:
+\begin{align*}
+\frac{1}{2}\frac{d}{dt} G(y_1,y_2,y_3) &= Ky_1\dot y_1 + y_2\dot y_2 + y_3\dot y_3 = \\
+%& = K y_1(-p_{11}y_1 + p_{12}y_2 + p_{13}y_3) +  y_2(p_{21}y_1 - p_{22}y_2 + p_{23}y_3)+  M y_3(p_{31}y_1 + p_{32}y_2 - p_{33}y_3) \\
+& = \underbrace{-Kp_{11}y_1^2}_{<-KBy_1^2}+Kp_{12}y_1y_2+Kp_{13}y_1y_3+p_{21}y_1y_2-p_{22}y_2^2+\underbrace{(p_{23}+Mp_{32})y_2y_3}_{=0}+Mp_{31}y_1y_3-Mp_{33}y_3^2  <\\
+& < -KBy_1^2+Kp_{12}y_1y_2+Kp_{13}y_1y_3+p_{21}y_1y_2-p_{22}y_2^2+Mp_{31}y_1y_3-Mp_{33}y_3^2
+\end{align*}
+
+
+
+Moreover 
+\begin{equation}
+\label{eq:B>m^2}
+B \geqslant \frac{L k_2}{k_1^2} m^2 \quad \text{for} \quad  |e_p|\leqslant 1.
+\end{equation}
+
+
+
+Also simple estimations yield
+$$
+|p_{21}|\leqslant \frac{m}{L}+M \qquad \text{and} \qquad |p_{31}|\leqslant m+ \frac1L\,.
+$$
+Therefore in a neighborhood of the origin we have:
+$$
+|p_{21}|\leqslant \frac{2m}{L} \qquad \text{and} \qquad |p_{31}|\leqslant 2m.
+$$
+Due to \eqref{eq:B>m^2} there exist a number (constant) $K$ such that
+\begin{equation}
+\label{eq:p21p31}
+\frac{2m}{L} \leqslant 2 \sqrt{\frac{KB}{8}\frac{p_{22}}{4}} \quad \text{and} \quad 2mM \leqslant 2  \sqrt{\frac{KB}{8}\frac{M p_{33}}{4}}.
+\end{equation}
+First we fix this number $K$. Next we fix a neighborhood of the origin to satisfy the following:
+\begin{equation}
+\label{eq:p12p13}
+K p_{12} \leqslant 2 \sqrt{\frac{KB}{8}\frac{p_{22}}{4}} \quad \text{and} \quad  Kp_{13} \leqslant 2  \sqrt{\frac{KB}{8}\frac{M p_{33}}{4}}.
+\end{equation}
+Now we claim that the function $G(y_1,y_2,y_3)=K|y_1|^2+|y_2|^2+M|y_3|^2$ is a Lyapunov function in a neighborhood of the origin.
+Indeed, \eqref{eq:p21p31} and the geometric-arithmetic mean inequality $2\sqrt{xy}\leqslant x^2+y^2$ imply
+$$
+|p_{21}y_1y_2|\leqslant \frac{KB}{8}y_1^2+\frac{p_{22}}{4}y_2^2  \qquad \text{and} \qquad |Mp_{31}y_1y_3|\leqslant \frac{KB}{8}y_1^2+\frac{Mp_{33}}{4}y_3^2.
+$$
+Similarly, from \eqref{eq:p12p13} it follows that
+$$
+|Kp_{12}y_1y_2|\leqslant \frac{KB}{8}y_1^2+\frac{p_{22}}{4}y_2^2  \qquad \text{and} \qquad |Kp_{13}y_1y_3|\leqslant \frac{KB}{8}y_1^2+\frac{Mp_{33}}{4}y_3^2.
+$$
+Thus
+\begin{multline}
+\frac{d}{dt} G(y_1,y_2,y_3)\leqslant -KBy_1^2+Kp_{12}y_1y_2+Kp_{13}y_1y_3+p_{21}y_1y_2-p_{22}y_2^2+
+\\
++(p_{23}+Mp_{32})y_2y_3+Mp_{31}y_1y_3-Mp_{33}y_3^2 \leqslant \\
+\leqslant
+-\frac{KB}{2}y_1^2-\frac{p_{22}}{2}y_2^2-\frac{Mp_{33}}2 y_3^2\leqslant 0.
+\end{multline}
+
+
+
+
 
 
 
