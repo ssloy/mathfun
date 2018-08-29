@@ -718,7 +718,7 @@ $$
 
 {\bf Замечание.} Условия этой леммы покрывают случай нашей железки: $L\approx 0.033, M\approx100, k_1=7, k_2=12, \alpha_1=0.75, \alpha_2=\alpha_3=0.5, k_3=Lk_2 $.
 
-{\bf Идея доказательства.}
+\subsubsection{Идея доказательства.}
 
 Для начала введём следующие обозначения:
 $$
@@ -776,10 +776,10 @@ $$
 Далее, мы выберем константу $K$ и окрестность $U_2\subset U_1$, в которой будут выполняться следующие неравенства (обоснование будет в следующем параграфе):
 
 \begin{align}
-|p_{21}y_1y_2|  & \leqslant \frac{KB}{8}y_1^2+\frac{p_{22}}{4}y_2^2  \label{eq:p21} \\
-|Mp_{31}y_1y_3| & \leqslant \frac{KB}{8}y_1^2+\frac{Mp_{33}}{4}y_3^2 \label{eq:p31} \\
-|Kp_{12}y_1y_2| & \leqslant \frac{KB}{8}y_1^2+\frac{p_{22}}{4}y_2^2  \label{eq:p12} \\
-|Kp_{13}y_1y_3| & \leqslant \frac{KB}{8}y_1^2+\frac{Mp_{33}}{4}y_3^2 \label{eq:p13}
+|p_{21}y_1y_2|  & < \frac{KB}{8}y_1^2+\frac{p_{22}}{4}y_2^2  \label{eq:p21} \\
+|Mp_{31}y_1y_3| & < \frac{KB}{8}y_1^2+\frac{Mp_{33}}{4}y_3^2 \label{eq:p31} \\
+|Kp_{12}y_1y_2| & < \frac{KB}{8}y_1^2+\frac{p_{22}}{4}y_2^2  \label{eq:p12} \\
+|Kp_{13}y_1y_3| & < \frac{KB}{8}y_1^2+\frac{Mp_{33}}{4}y_3^2 \label{eq:p13}
 \end{align}
 
 Вставив неравенства \eqref{eq:p21}--\eqref{eq:p13} в неравенство \eqref{eq:G1}, мы получим
@@ -792,10 +792,10 @@ $$
 Поскольку $G$ имеет вид $G(y_1,y_2,y_3)=K y_1^2+ y_2^2 + M y_3^2$, то в области $U_3: K y_1^2+ y_2^2 + M y_3^2 < K\varepsilon^2$ 
 функция $G$ убывает на траекториях нашей системы дифференциальных уравнений \eqref{eq:errdyn}.
 
-{\bf Конец основной идеи.}
 
+\subsubsection{Технические детали доказательства}
 
-\paragraph{Утверждение}
+\paragraph{Утверждение А}
 
 \begin{equation}
 M>1, \quad L\in \left(0,\frac{1}{\sqrt{2}}\right),\quad s>\max\{\frac{1}{L}, M\} \quad \Rightarrow \quad |p_{21}|<2\frac{s}{L}
@@ -812,7 +812,7 @@ $$
 p_{21} > \frac{L^2 M}{L^2M - L^4} M > 0
 $$
 
-\paragraph{Утверждение}
+\paragraph{Утверждение Б}
 
 \begin{equation}
 M>1, \quad L\in \left(0,\frac{1}{\sqrt{2}}\right),\quad s>\max\{\frac{1}{L}, M\} \quad \Rightarrow \quad |p_{31}|<s
@@ -830,70 +830,43 @@ $$
 p_{31} > \frac{-LM}{M-L^2} > \frac{-LM}{M-\frac{1}{2}M} = -2L.
 $$
 
-\paragraph{Утверждение}
+\paragraph{Утверждение В}
 
 \begin{equation}
 \label{eq:B}
-|e_p|\leqslant 1 \quad \Rightarrow \quad B \geqslant \frac{L k_2}{k_1^2} s^2 
+|e_p|< 1 \quad \Rightarrow \quad B < \frac{L k_2}{k_1^2} s^2 
 \end{equation}
 $
 \alpha_2  \leq  2\alpha_1 - 1 \Rightarrow
 \alpha_2-1 \leq 2(\alpha_1-1) < 0.
 $
 
-$|e_p|\leqslant 1 \Rightarrow |e_p|^{\alpha_2-1} \geq |e_p|^{2(\alpha_1-1)} \Rightarrow \frac{B}{Lk_2} \geq \left(\frac{s}{k_1}\right)^2$  
+$|e_p|< 1 \Rightarrow |e_p|^{\alpha_2-1} > |e_p|^{2(\alpha_1-1)} \Rightarrow \frac{B}{Lk_2} > \left(\frac{s}{k_1}\right)^2$  
 
 
 
+Исходя из этих трёх утверждений, попробуем обосновать неравенства \eqref{eq:p21} и \eqref{eq:p31}.
+Поскольку в окрестности $U_1$ у нас  $|p_{21}|<2\frac{s}{L}$ и $|p_{31}|<s$, то можно утверждать, что
+\begin{align*}
+|p_{21}y_1 y_2| & < \frac{2s}{L} \sqrt{y_1^2 y_2^2}\\
+|Mp_{31}y_1 y_3| & < Ms \sqrt{y_1^2 y_3^2}
+\end{align*}
 
 
-\iffalse
+Неравенство \eqref{eq:B} говорит о том, что можно выбрать такую постоянную $K$, что во всей окрестности $U_1$ будут выполняться неравенства
+$\frac{2s}{L} < 2 \sqrt{\frac{KB}{8}\frac{p_{22}}{4}}$ и $Ms < 2 \sqrt{\frac{KB}{8}\frac{Mp_{33}}{4}}$.
 
+Это, в свою очередь означает
+\begin{alignat*}{3}
+|p_{21}y_1 y_2| & < 2 \sqrt{\frac{KB}{8} y_1^2 \frac{p_{22}}{4}y_2^2} && \leq \frac{KB}{8}y_1^2 + \frac{p_{22}}{4}y_2^2 \\
+|Mp_{31}y_1 y_3| & < 2 \sqrt{\frac{KB}{8} y_1^2 \frac{M p_{33}}{4}y_3^2} && \leq \frac{KB}{8}y_1^2 + \frac{Mp_{33}}{4} y_3^2.
+\end{alignat*}
+Правая часть неравенств следует из неравенства Коши $2\sqrt{xy} \leq x+y$.
 
-Moreover 
-
-
-Also simple estimations yield
-$$
-|p_{21}|\leqslant \frac{m}{L}+M \qquad \text{and} \qquad |p_{31}|\leqslant m+ \frac1L\,.
-$$
-Therefore in a neighborhood of the origin we have:
-$$
-|p_{21}|\leqslant \frac{2m}{L} \qquad \text{and} \qquad |p_{31}|\leqslant 2m.
-$$
-Due to \eqref{eq:B>m^2} there exist a number (constant) $K$ such that
-\begin{equation}
-\label{eq:p21p31}
-\frac{2m}{L} \leqslant 2 \sqrt{\frac{KB}{8}\frac{p_{22}}{4}} \quad \text{and} \quad 2mM \leqslant 2  \sqrt{\frac{KB}{8}\frac{M p_{33}}{4}}.
-\end{equation}
-First we fix this number $K$. Next we fix a neighborhood of the origin to satisfy the following:
-\begin{equation}
-\label{eq:p12p13}
-K p_{12} \leqslant 2 \sqrt{\frac{KB}{8}\frac{p_{22}}{4}} \quad \text{and} \quad  Kp_{13} \leqslant 2  \sqrt{\frac{KB}{8}\frac{M p_{33}}{4}}.
-\end{equation}
-Now we claim that the function $G(y_1,y_2,y_3)=K|y_1|^2+|y_2|^2+M|y_3|^2$ is a Lyapunov function in a neighborhood of the origin.
-Indeed, \eqref{eq:p21p31} and the geometric-arithmetic mean inequality $2\sqrt{xy}\leqslant x^2+y^2$ imply
-$$
-|p_{21}y_1y_2|\leqslant \frac{KB}{8}y_1^2+\frac{p_{22}}{4}y_2^2  \qquad \text{and} \qquad |Mp_{31}y_1y_3|\leqslant \frac{KB}{8}y_1^2+\frac{Mp_{33}}{4}y_3^2.
-$$
-Similarly, from \eqref{eq:p12p13} it follows that
-$$
-|Kp_{12}y_1y_2|\leqslant \frac{KB}{8}y_1^2+\frac{p_{22}}{4}y_2^2  \qquad \text{and} \qquad |Kp_{13}y_1y_3|\leqslant \frac{KB}{8}y_1^2+\frac{Mp_{33}}{4}y_3^2.
-$$
-Thus
-\begin{multline}
-\frac{d}{dt} G(y_1,y_2,y_3)\leqslant -KBy_1^2+Kp_{12}y_1y_2+Kp_{13}y_1y_3+p_{21}y_1y_2-p_{22}y_2^2+
-\\
-+(p_{23}+Mp_{32})y_2y_3+Mp_{31}y_1y_3-Mp_{33}y_3^2 \leqslant \\
-\leqslant
--\frac{KB}{2}y_1^2-\frac{p_{22}}{2}y_2^2-\frac{Mp_{33}}2 y_3^2\leqslant 0.
-\end{multline}
-
-
-
-\fi
-
-
-
+Итого, мы выбрали постоянную $K:=\max\left\{\frac{32k_1^2}{L^3k_2p_{22}}, \frac{8Mk_1^2}{Lk_2p_{33}}\right\}$. 
+Теперь осталось выбрать окрестность $U_2$, в которой будут выполняться неравенства \eqref{eq:p12} и \eqref{eq:p13}.
+Для этого достаточно выбрать такую окрестность, в которой будут выполняться
+$Kp_{12} < 2 \sqrt{\frac{KB}{8}\frac{p_{22}}{4}}$ и $Kp_{13} < 2 \sqrt{\frac{KB}{8}\frac{Mp_{33}}{4}}$.
+При таком выборе $U_2$, применив неравенство Коши аналогично вышеприведённому рассуждению, мы получим выполнение неравенств \eqref{eq:p12} и \eqref{eq:p13}.
 
 \end{document}
