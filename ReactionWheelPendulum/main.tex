@@ -713,7 +713,7 @@ $$
 
 
 
-{\bf Лемма.} Пусть $\alpha_1<1$, $\alpha_2\leqslant2\alpha_1-1$, $L\in (0,\frac{1}{\sqrt{2}})$, $M>1$; $k_1,k_2>0$, $f(t)\equiv 1$. 
+{\bf Лемма.} Пусть $\alpha_1<1$, $\alpha_2\leqslant2\alpha_1-1$, $L\in \left(0,\frac{1}{\sqrt{2}}\right)$, $M>1$; $k_1,k_2>0$, $f(t)\equiv 1$. 
 Тогда существует окрестность нуля $\mathbb R^3$, в которой система \eqref{eq:errdyn} устойчива.
 
 {\bf Замечание.} Условия этой леммы покрывают случай нашей железки: $L\approx 0.033, M\approx100, k_1=7, k_2=12, \alpha_1=0.75, \alpha_2=\alpha_3=0.5, k_3=Lk_2 $.
@@ -795,10 +795,40 @@ $$
 {\bf Конец основной идеи.}
 
 
-\paragraph{Факт 1: $|p_21|<2\frac{s}{L}$}
+\paragraph{Утверждение}
 
+\begin{equation}
+M>1, \quad L\in \left(0,\frac{1}{\sqrt{2}}\right),\quad s>\max\{\frac{1}{L}, M\} \quad \Rightarrow \quad |p_{21}|<2\frac{s}{L}
+\label{eq:p21a}
+\end{equation}
 
+Ограничим сверху:
+$$
+p_{21} = \underbrace{\frac{1-L^2}{1-\frac{L^2}{M}}}_{<1}\frac{s}{L} + \underbrace{\frac{L^2M + L^2 -1}{L^2M - L^4}}_{<1} M < \frac{s}{L} + M < 2\frac{s}{L}
+$$
 
+Ограничим снизу, заменив $s$ на $1/L$:
+$$
+p_{21} > \frac{L^2 M}{L^2M - L^4} M > 0
+$$
+
+\paragraph{Утверждение}
+
+\begin{equation}
+M>1, \quad L\in \left(0,\frac{1}{\sqrt{2}}\right),\quad s>\max\{\frac{1}{L}, M\} \quad \Rightarrow \quad |p_{31}|<s
+\label{eq:p21a}
+\end{equation}
+
+Ограничим сверху:
+$$
+p_{31} = \underbrace{\frac{M-1}{M-L^2}}_{<1}s + \underbrace{\frac{1-M-L^2M}{L(M-L^2)}}_{<0} < s
+$$
+
+Ограничим снизу, заменив $s$ на $1/L$:
+
+$$
+p_{31} > \frac{-LM}{M-L^2} > \frac{-LM}{M-\frac{1}{2}M} = -2L.
+$$
 
 
 
