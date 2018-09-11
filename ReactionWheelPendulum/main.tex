@@ -869,4 +869,110 @@ $\frac{2s}{L} < 2 \sqrt{\frac{KB}{8}\frac{p_{22}}{4}}$ и $Ms < 2 \sqrt{\frac{KB
 $Kp_{12} < 2 \sqrt{\frac{KB}{8}\frac{p_{22}}{4}}$ и $Kp_{13} < 2 \sqrt{\frac{KB}{8}\frac{Mp_{33}}{4}}$.
 При таком выборе $U_2$, применив неравенство Коши аналогично вышеприведённому рассуждению, мы получим выполнение неравенств \eqref{eq:p12} и \eqref{eq:p13}.
 
+\subsubsection{Непостоянная f(t)}
+Заменим теперь $Mf(t)$ на $M+g(t)$:
+\begin{equation}
+\label{eq:errdynfneq1}
+\left\{
+\begin{aligned}
+\dot e_p&=(-Lk_2|e_p|^{\alpha_2-1}-k_1|e_p|^{\alpha_1-1})e_p+e_2  \\
+\dot e_2&= - k_2|e_p|^{\alpha_2-1}e_p+(M+g(t))e_3\\
+\dot e_3&=  -Lk_2|e_p|^{\alpha_2-1}e_p
+\end{aligned}
+\right.
+\end{equation}
+
+{\bf Лемма.} Пусть $\alpha_1<1$, $\alpha_2\leqslant2\alpha_1-1$, $L\in \left(0,\frac{1}{2}\right)$, $M>2$; $k_1,k_2>0$. 
+Тогда существуют $\varepsilon>0$ и такая окрестность нуля $\mathbb R^3$, в которой система \eqref{eq:errdynfneq1} (асимптотически) устойчива при условии $|g(t)|<\varepsilon$.
+
+Замену переменных используем ту же самую; обозначим матрицу динамики в новых переменных тильдой:
+$$
+\tilde P= C^{-1}
+\left(A+
+  \begin{pmatrix}
+  0&0&0
+ \\[1mm]
+ 0&0&g
+ \\[1mm]
+ 0&0&0 \end{pmatrix}
+ \right)
+ C=
+ \begin{pmatrix}-\tilde p_{11}&\tilde p_{12}&\tilde p_{13}\\
+ \tilde p_{21}&-\tilde p_{22}&\tilde p_{23}\\
+ \tilde p_{31}&\tilde p_{32}&-\tilde p_{33}\end{pmatrix}.
+$$
+
+От предыдущей матрицы $P$ она отличается на вот такое слагаемое:
+$$
+ C^{-1}
+  \begin{pmatrix}
+  0&0&0
+ \\[1mm]
+ 0&0&g
+ \\[1mm]
+ 0&0&0 \end{pmatrix}
+ C=
+ \begin{pmatrix}
+  0&0&0
+ \\[1mm]
+\frac{Mg}{M-L^2}&\frac{Lg}{M-L^2} &M\frac{g}{M-L^2}
+ \\[1mm]
+-\frac{ Lg}{M-L^2}&-\frac{gL^2/M }{M-L^2}&-\frac{Lg}{M-L^2} \end{pmatrix}
+$$
+
+Используя ровно те же рассуждения, что и раньше, мы можем утверждать, что возможно найти постоянную $K$, при которой будут выполняться неравенства:
+\begin{equation}
+\label{eq:p21p31n}
+\tilde p_{21} \leqslant 2 \sqrt{\frac{KB}{8}\frac{\tilde p_{22}}{4}} \quad \text{и} \quad M \tilde p_{31} \leqslant 2  \sqrt{\frac{KB}{8}\frac{M \tilde p_{33}}{4}}.
+\end{equation}
+Однажды зафиксировав эту постоянную, можно найти окрестность нуля, в которой выполняются следующие неравенства:
+\begin{equation}
+\label{eq:p12p13n}
+K \tilde p_{12} \leqslant 2 \sqrt{\frac{KB}{8}\frac{\tilde p_{22}}{4}} \quad \text{и} \quad  K \tilde p_{13} \leqslant 2  \sqrt{\frac{KB}{8}\frac{M \tilde p_{33}}{4}}.
+\end{equation}
+
+Стоит отметить, что <<новая>> константа и <<новая>> окрестность не совпдают со <<старыми>>, хотя и совсем ненамного.
+Применив, как и раньше, неравенство Коши, получим следующие неравенства:
+$$
+|\tilde p_{21}y_1y_2|\leqslant \frac{KB}{8}y_1^2+\frac{\tilde p_{22}}{4}y_2^2  \qquad \qquad |M\tilde p_{31}y_1y_3|\leqslant \frac{KB}{8}y_1^2+\frac{M\tilde p_{33}}{4}y_3^2
+$$
+$$
+|K\tilde p_{12}y_1y_2|\leqslant \frac{KB}{8}y_1^2+\frac{\tilde p_{22}}{4}y_2^2  \qquad  \qquad 
+|K\tilde p_{13}y_1y_3|\leqslant \frac{KB}{8}y_1^2+\frac{M\tilde  p_{33}}{4}y_3^2.
+$$
+
+Функция Ляпунова осталась прежней: $G(y_1,y_2,y_3):=K|y_1|^2+|y_2|^2+M|y_3|^2$.
+\begin{multline*}
+\frac{1}{2}\frac{d}{dt} G(y_1,y_2,y_3)=-K\tilde p_{11}y_1^2+K\tilde p_{12}y_1y_2+K\tilde p_{13}y_1y_3+\tilde p_{21}y_1y_2-\tilde p_{22}y_2^2+
+\\
++(\tilde p_{23}+M\tilde p_{32})y_2y_3+M\tilde p_{31}y_1y_3-M\tilde p_{33}y_3^2.
+\end{multline*}
+
+Вставив эти неравенства в производную функции Ляпунова, и поверив на слово, что 
+\begin{equation}
+|(\tilde p_{23}+M\tilde p_{32})y_2y_3| < \frac{\tilde p_{22}}{4} y_2^2+\frac{M \tilde p_{33}}{4}y_3^2, 
+\label{eq:magic}
+\end{equation}
+получим следующее ограничение сверху для производной:
+\begin{multline}
+\nonumber
+\frac{1}{2}\frac{d}{dt} G(y_1,y_2,y_3)\leqslant -KBy_1^2+K\tilde p_{12}y_1y_2+K\tilde p_{13}y_1y_3+\tilde p_{21}y_1y_2-\tilde p_{22}y_2^2+ \\
++(\tilde p_{23}+M\tilde p_{32})y_2y_3+M\tilde p_{31}y_1y_3-M\tilde p_{33}y_3^2 \leqslant \\
+\leqslant
+-\frac{KB}{2}y_1^2-\frac{\tilde p_{22}}{4}y_2^2-\frac{M\tilde p_{33}}4 y_3^2\leqslant 0.
+\end{multline}
+
+Единственное, что нам осталось, это показать, откуда может взяться неравенство~\ref{eq:magic}. Его мы можем получить применением неравенства Коши к следующему:
+$$
+|\tilde p_{23}+M\tilde p_{32}|<2\sqrt{\frac{\tilde p_{22}}{4}\frac{M \tilde p_{33}}{4}}.
+$$
+
+А оно, в свою очередь, полностью эквивалентно выбору $\varepsilon>0$, чтобы $|g(t)|<\varepsilon$ привёл к выполнению вот такого:
+$$
+|g(t)\cdot(M-L^2)|<\frac{1}{2}\sqrt{M(M-2ML^2-L^2g)(2M+g-1)}.
+$$
+Например, вполне достаточно выбрать $\varepsilon=\frac{\sqrt{M}}{4}$.
+
+
+
 \end{document}
