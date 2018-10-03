@@ -119,6 +119,12 @@
 
 /* USER CODE BEGIN Private defines */
 
+#define UDP_SERVER_PORT (u16_t)8691
+#define DEST_IP_ADDR0   (uint8_t)192
+#define DEST_IP_ADDR1   (uint8_t)168
+#define DEST_IP_ADDR2   (uint8_t)1
+#define DEST_IP_ADDR3   (uint8_t)101
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

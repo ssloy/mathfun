@@ -53,6 +53,8 @@
 
 /* USER CODE BEGIN Includes */
 
+#include "udp_client.h"
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -115,12 +117,15 @@ int main(void)
   MX_LWIP_Init();
   /* USER CODE BEGIN 2 */
 
+  udp_client_connect();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
 	  MX_LWIP_Process();
+	  udp_client_send();
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
