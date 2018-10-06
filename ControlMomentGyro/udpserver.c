@@ -24,7 +24,7 @@ void *send_msg(void *sock_desc) {
     char buf[buf_size];            /* message buf */
     int clientlen;                 /* byte size of client's address */
     struct sockaddr_in clientaddr; /* client addr */
-    int n;                         /* message byte size */
+    int msgsize, nsent;                         /* message byte size */
     struct timeval stime, etime;
     int elapsed;
 
@@ -43,11 +43,14 @@ void *send_msg(void *sock_desc) {
 
         if (!clientlen) continue;
 
-        sprintf(buf, "sdflksdfj\n");
+        msgsize = sizeof(struct timeval);
+        memcpy(buf, &stime, msgsize);
+//      sprintf(buf, "sdfsdf");
+//      msgsize = strlen(buf);
 
-        n = sendto(*(int *)sock_desc, buf, strlen(buf), 0, (struct sockaddr *)&clientaddr, clientlen);
-        printf("sendto: %ld %d\n",clientaddr.sin_addr.s_addr, clientlen);
-        if (n < 0) {
+        nsent = sendto(*(int *)sock_desc, buf, msgsize, 0, (struct sockaddr *)&clientaddr, clientlen);
+//        printf("sendto: %ld %d\n",clientaddr.sin_addr.s_addr, clientlen);
+        if (nsent < 0) {
             error("ERROR in sendto");
         }
     }
@@ -58,7 +61,7 @@ void *receive_msg(void *sock_desc) {
     int n;                         /* message byte size */
     unsigned int clientlen;        /* byte size of client's address */
     struct sockaddr_in clientaddr; /* client addr */
-    struct timeval stime, etime;
+    struct timeval stime, etime, ttime;
     int elapsed;
 
     gettimeofday(&stime, NULL);
@@ -80,8 +83,15 @@ void *receive_msg(void *sock_desc) {
         shared_clientlen  = clientlen;
         pthread_mutex_unlock(&mutex);
 
-        printf("server received %d/%d bytes: %s\n", (int)strlen(buf), n, buf);
-        printf("time: %d\n", elapsed);
+//        printf("server received %d/%d bytes: %s\n", (int)strlen(buf), n, buf);
+//        printf("server received %d bytes\n", n);
+        printf("time between two messages: %d\n", elapsed);
+        if (n==sizeof(struct timeval)) {
+            gettimeofday(&etime, NULL);
+            memcpy(&ttime, buf, n);
+            elapsed = ((etime.tv_sec - ttime.tv_sec) * 1000000) + (etime.tv_usec - ttime.tv_usec);
+            printf("send-return time: %d\n", elapsed);
+        }
     }
 }
 

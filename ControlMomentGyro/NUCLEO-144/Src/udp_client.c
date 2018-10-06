@@ -8,9 +8,10 @@
 
 void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 
-u8_t   data[100];
-__IO uint32_t message_count = 0;
-struct udp_pcb *upcb;
+volatile uint8_t data[100];
+volatile uint8_t datalen = 0;
+volatile uint32_t message_count = 0;
+struct udp_pcb *upcb = NULL;
 
 
 /**
@@ -49,25 +50,21 @@ void udp_client_connect(void) {
   * @param port the remote port from which the packet was received
   * @retval None
   */
-void udp_client_send(void)
-{
-  struct pbuf *p;
-  
-  sprintf((char*)data, "sending udp client message %d", (int)message_count);
-  
-  /* allocate pbuf from pool*/
-  p = pbuf_alloc(PBUF_TRANSPORT,strlen((char*)data), PBUF_POOL);
-  
-  if (p != NULL) {
-    /* copy data to pbuf */
-    pbuf_take(p, (char*)data, strlen((char*)data));
-    
-    /* send udp data */
-    udp_send(upcb, p); 
-    
-    /* free pbuf */
-    pbuf_free(p);
-  }
+void udp_client_send(void) {
+	char hello[] = "hello";
+	struct pbuf *p;
+
+	if (!datalen) {
+		datalen = strlen(hello);
+		memcpy(data, hello, datalen);
+	}
+
+	p = pbuf_alloc(PBUF_TRANSPORT, datalen, PBUF_POOL);
+	if (!p)
+		return;
+	pbuf_take(p, (char*) data, datalen);
+	udp_send(upcb, p);
+	pbuf_free(p);
 }
 
 /**
@@ -79,13 +76,13 @@ void udp_client_send(void)
   * @param port the remote port from which the packet was received
   * @retval None
   */
-void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
-{
-
-  /*increment message count */
+void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
+    // TODO: check if this routine is called from an interrput, replace the copy by a memcpy, check if we need a critical section
+  for (uint8_t i=0; i<p->len; i++) {
+	  data[i] = pbuf_get_at(p, i);
+  }
+  datalen = p->len;
   message_count++;
-  
-  /* Free receive pbuf */
   pbuf_free(p);
 }
 
