@@ -8,12 +8,17 @@ wcn:                           matrix([diff(qc(t),t)],[0],[0]) +     Rbc.matrix(
 wbn:                                                          matrix([0],[diff(qb(t),t)],[0]) +         Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
 wan:                                                                                             Rna.matrix([0],[0],[diff(qa(t),t)]);
 
-T:transpose(wdn).matrix([Id,0,0],[0,Jd,0],[0,0,Id]).wdn/2 + transpose(wcn).matrix([Ic,0,0],[0,Jc,0],[0,0,Kc]).wcn/2 + transpose(wbn).matrix([Ib,0,0],[0,Jb,0],[0,0,Kb]).wbn/2 + transpose(wan).matrix([Ia,0,0],[0,Ja,0],[0,0,Ka]).wan/2;
-trigsimp(T),qb(t)=0,diff(qb(t),t)=0;
 
-# Explicit solution of the ODEs describing the 3 DOF Control Moment Gyroscope
-# этот лагранжиан выписан для случая заблокированного шарнира qb(t)=0
-L:1/2*(Jd*diff(qd(t),t)^2 + (Ic+Id)*diff(qc(t),t)^2 + (Ka+Jc+Jd+Kb - (Jc+Jd-Kc-Id)*cos(qc(t))^2)*diff(qa(t),t)^2) + Jd*diff(qd(t),t)*diff(qa(t),t)*sin(qc(t));
+#T:transpose(wdn).matrix([Id,0,0],[0,Jd,0],[0,0,Id]).wdn/2 + transpose(wcn).matrix([Ic,0,0],[0,Jc,0],[0,0,Kc]).wcn/2 + transpose(wbn).matrix([Ib,0,0],[0,Jb,0],[0,0,Kb]).wbn/2 + transpose(wan).matrix([Ia,0,0],[0,Ja,0],[0,0,Ka]).wan/2;
+#trigsimp(T),qb(t)=0,diff(qb(t),t)=0;
+
+## Explicit solution of the ODEs describing the 3 DOF Control Moment Gyroscope
+## этот лагранжиан выписан для случая заблокированного шарнира qb(t)=0
+#L:1/2*(Jd*diff(qd(t),t)^2 + (Ic+Id)*diff(qc(t),t)^2 + (Ka+Jc+Jd+Kb - (Jc+Jd-Kc-Id)*cos(qc(t))^2)*diff(qa(t),t)^2) + Jd*diff(qd(t),t)*diff(qa(t),t)*sin(qc(t));
 
 
+#Одномерный маятник:
+T:transpose(wdn).matrix([Id,0,0],[0,Jd,0],[0,0,Id]).wdn/2 + transpose(wcn).matrix([Ic,0,0],[0,Jc,0],[0,0,Kc]).wcn/2 + transpose(wbn).matrix([Ib,0,0],[0,Jb,0],[0,0,Kb]).wbn/2 + (m*l^2)*transpose(wbn).wbn/2;
+P: m*g*l*cos(qb(t));
 
+L:trigsimp(T-P),qa(t)=0,diff(qa(t),t)=0;
