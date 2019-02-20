@@ -10,7 +10,7 @@
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
-  * Copyright (c) 2018 STMicroelectronics International N.V. 
+  * Copyright (c) 2019 STMicroelectronics International N.V. 
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without 
@@ -79,10 +79,6 @@
 #define RMII_TXD1_GPIO_Port GPIOB
 #define LD3_Pin GPIO_PIN_14
 #define LD3_GPIO_Port GPIOB
-#define STLK_RX_Pin GPIO_PIN_8
-#define STLK_RX_GPIO_Port GPIOD
-#define STLK_TX_Pin GPIO_PIN_9
-#define STLK_TX_GPIO_Port GPIOD
 #define USB_PowerSwitchOn_Pin GPIO_PIN_6
 #define USB_PowerSwitchOn_GPIO_Port GPIOG
 #define USB_OverCurrent_Pin GPIO_PIN_7
@@ -123,7 +119,7 @@
 #define DEST_IP_ADDR0   (uint8_t)192
 #define DEST_IP_ADDR1   (uint8_t)168
 #define DEST_IP_ADDR2   (uint8_t)1
-#define DEST_IP_ADDR3   (uint8_t)101
+#define DEST_IP_ADDR3   (uint8_t)107
 
 /* USER CODE END Private defines */
 

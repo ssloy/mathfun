@@ -33,7 +33,7 @@ void *send_msg(void *sock_desc) {
     while (1) {
         gettimeofday(&etime, NULL);
         elapsed = ((etime.tv_sec - stime.tv_sec) * 1000000) + (etime.tv_usec - stime.tv_usec);
-        if (elapsed<160) continue;
+        if (elapsed<1000) continue;
         stime = etime;
 
         pthread_mutex_lock(&mutex);

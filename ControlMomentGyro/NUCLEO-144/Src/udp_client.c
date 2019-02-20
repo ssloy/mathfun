@@ -20,25 +20,24 @@ struct udp_pcb *upcb = NULL;
   * @retval None
   */
 void udp_client_connect(void) {
-  ip_addr_t DestIPaddr;
-  err_t err;
-  
-  /* Create a new UDP control block  */
-  upcb = udp_new();
-  
-  if (upcb!=NULL) {
-    /*assign destination IP address */
-    IP4_ADDR( &DestIPaddr, DEST_IP_ADDR0, DEST_IP_ADDR1, DEST_IP_ADDR2, DEST_IP_ADDR3 );
-    
-    /* configure destination IP address and port */
-    err= udp_connect(upcb, &DestIPaddr, UDP_SERVER_PORT);
-    
-    if (err == ERR_OK)
-    {
-      /* Set a receive callback for the upcb */
-      udp_recv(upcb, udp_receive_callback, NULL);  
-    }
-  }
+	ip_addr_t DestIPaddr;
+	err_t err;
+
+	/* Create a new UDP control block  */
+	upcb = udp_new();
+
+	if (upcb!=NULL) {
+		/*assign destination IP address */
+		IP4_ADDR( &DestIPaddr, DEST_IP_ADDR0, DEST_IP_ADDR1, DEST_IP_ADDR2, DEST_IP_ADDR3 );
+
+		/* configure destination IP address and port */
+		err = udp_connect(upcb, &DestIPaddr, UDP_SERVER_PORT);
+
+		if (err == ERR_OK) {
+			/* Set a receive callback for the upcb */
+			udp_recv(upcb, udp_receive_callback, NULL);
+		}
+	}
 }
 
 /**
@@ -60,15 +59,14 @@ void udp_client_send(void) {
 	}
 
 	p = pbuf_alloc(PBUF_TRANSPORT, datalen, PBUF_POOL);
-	if (!p)
-		return;
-	pbuf_take(p, (char*) data, datalen);
+	if (!p) return;
+	pbuf_take(p, (char *)data, datalen);
 	udp_send(upcb, p);
 	pbuf_free(p);
 }
 
 /**
-  * @brief This function is called when an UDP datagrm has been received on the port UDP_PORT.
+  * @brief This function is called when an UDP datagram has been received on the port UDP_PORT.
   * @param arg user supplied argument (udp_pcb.recv_arg)
   * @param pcb the udp_pcb which received data
   * @param p the packet buffer that was received
@@ -77,12 +75,12 @@ void udp_client_send(void) {
   * @retval None
   */
 void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
-    // TODO: check if this routine is called from an interrput, replace the copy by a memcpy, check if we need a critical section
-  for (uint8_t i=0; i<p->len; i++) {
-	  data[i] = pbuf_get_at(p, i);
-  }
-  datalen = p->len;
-  message_count++;
-  pbuf_free(p);
+	// TODO: check if this routine is called from an interrput, replace the copy by a memcpy, check if we need a critical section
+	for (uint8_t i=0; i<p->len; i++) {
+		data[i] = pbuf_get_at(p, i);
+	}
+	datalen = p->len;
+	message_count++;
+	pbuf_free(p);
 }
 
