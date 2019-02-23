@@ -5,8 +5,6 @@
 #include <string.h>
 #include <stdio.h>
 #include "udp_client.h"
-#include "gl_svg.h"
-#include "dwt_stm32_delay.h"
 
 void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 
@@ -15,8 +13,8 @@ volatile uint8_t datalen = 0;
 volatile uint32_t message_count = 0;
 struct udp_pcb *upcb = NULL;
 
-volatile int megacounter1 = 0;
-volatile int megacounter2 = 0;
+//volatile int megacounter1 = 0;
+//volatile int megacounter2 = 0;
 
 
 /**
@@ -54,7 +52,15 @@ void udp_client_connect(void) {
   * @param port the remote port from which the packet was received
   * @retval None
   */
-void udp_client_send(void) {
+void udp_client_send(char *msg) {
+	uint8_t len = strlen(msg);
+	struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_POOL);
+	if (!p) return;
+	pbuf_take(p, (char *)msg, len);
+	udp_send(upcb, p);
+	pbuf_free(p);
+
+	/*
 char msg[255] = {0};
 float roll = GLVG_getRoll();
 float yaw = GLVG_getYaw();
@@ -62,14 +68,8 @@ float pitch = GLVG_getPitch();
 
 int32_t useconds = DWT_us();
 sprintf(msg,"%ld %d %d %f %f %f\n", useconds, megacounter1, megacounter2, roll, yaw, pitch);
-uint8_t len = strlen(msg);
-struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_POOL);
-if (!p) return;
-pbuf_take(p, (char *)msg, len);
-udp_send(upcb, p);
-pbuf_free(p);
 
-
+*/
 	/*
 	char hello[] = "hello";
 	struct pbuf *p;

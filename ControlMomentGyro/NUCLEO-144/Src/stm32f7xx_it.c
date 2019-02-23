@@ -201,9 +201,8 @@ void SysTick_Handler(void)
 void UART5_IRQHandler(void)
 {
   /* USER CODE BEGIN UART5_IRQn 0 */
-//  megacounter++;
-  GLVG_UART_IRQ_Handler(&huart5);
-  return;
+//  GLVG_UART_IRQ_Handler(&huart5);
+//  return;
 
   /* USER CODE END UART5_IRQn 0 */
   HAL_UART_IRQHandler(&huart5);

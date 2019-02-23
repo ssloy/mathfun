@@ -1,10 +1,9 @@
-#include "gl_svg.h"
-
 #include "string.h"
 #include "math.h"
+#include "gl_svg.h"
 
-extern int megacounter1;
-extern int megacounter2;
+//extern int megacounter1;
+//extern int megacounter2;
 
 #ifdef GLVG_485
 #define GLVG_PACKET_SHIFT 	4
@@ -57,14 +56,9 @@ static uint32_t GLVG_installCommandId = 4359;
 
 UART_HandleTypeDef * GLVG_uart;
 
-void GLVG_init(UART_HandleTypeDef * uart, float * coordinates){
+void GLVG_init(UART_HandleTypeDef * uart) {
 	GLVG_uart = uart;
-	GLVG_latitude = (uint32_t)(coordinates[0] * M_PI / 180 * 100000000);
-	GLVG_longitude = (uint32_t)(coordinates[1] * M_PI / 180 * 100000000);
-	GLVG_height = (uint32_t)(coordinates[2] * 100000);
-
 	__HAL_UART_ENABLE_IT(GLVG_uart, UART_IT_RXNE);
-  	
 }
 
 static float GLVG_calculateDistance(float lat1, float lon1, float lat2, float lon2){
@@ -271,10 +265,10 @@ void GLVG_UART_IRQ_Handler(UART_HandleTypeDef * huart) {
 
 
 			rxBuffer[rxBufferIdx++] =  huart->Instance->RDR;
-			megacounter1++;
+//			megacounter1++;
 
 			if(rxBufferIdx > 3 && rxBuffer[rxBufferIdx - 4] == 0xAA && rxBuffer[rxBufferIdx - 3] == 0xAA){
-				megacounter2++;
+//				megacounter2++;
 				rxBuffer[0] = rxBuffer[rxBufferIdx - 4];
 				rxBuffer[1] = rxBuffer[rxBufferIdx - 3];
 				packetLength = rxBuffer[2] = rxBuffer[rxBufferIdx - 2];

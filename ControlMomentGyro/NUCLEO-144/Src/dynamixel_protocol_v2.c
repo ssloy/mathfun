@@ -57,7 +57,7 @@ void instructionPacketAssebly(uint8_t _ID, uint8_t _instruction, uint8_t* _param
 	    if (_instruction == COMMAND_WRITE_DATA)
 	    {
 	    	answerPacketSize = 11;
-	    } else if(_instruction == COMMAND_SYNC_WRITE){
+	    } else if(_instruction == COMMAND_SYNC_WRITE) {
 	    	answerPacketSize = 11;
 	    } else if (_instruction == COMMAND_READ_DATA){
 	    	uint16_t assembledSizeVar = 0;

@@ -53,7 +53,7 @@ typedef struct orientationPacket2Struct{
 extern orientationPacket1Struct svg_data1;
 extern orientationPacket2Struct svg_data2;
 
-void GLVG_init(UART_HandleTypeDef * uart, float * coordinates);
+void GLVG_init(UART_HandleTypeDef * uart);
 void GLVG_reinitCoordinates(float lat, float lon, float h);
 
 bool GLVG_isINSValid();

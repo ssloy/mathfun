@@ -122,8 +122,7 @@ int main(void)
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
   udp_client_connect();
-//  float coords[3] = {0};
-//  GLVG_init(&huart5, coords);
+//  GLVG_init(&huart5);
   bindDynamixelUART(&huart5);
 
   Servo serv1;
@@ -135,14 +134,25 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  uint32_t time1 = HAL_GetTick();
+  uint32_t time_prev = DWT_us();
+  uint16_t angle_raw;
+  int16_t angular_velocity;
+
   setVelocity((int32_t)-50, &serv1);
   while (1) {
+	  if (time_prev>10L*1000L*1000L) setVelocity((int32_t)0, &serv1);
 	  MX_LWIP_Process();
-	  uint32_t time2 = HAL_GetTick();
-	  if (time2-time1>100) {
-		  udp_client_send();
-		  time1 = time2;
+	  uint32_t time = DWT_us();
+	  if (time-time_prev>100000L) {
+		  readData(&serv1, 128, 8);
+		  memcpy(&angular_velocity,&commRxBuffer[9],4);
+		  memcpy(&angle_raw,&commRxBuffer[13],4);
+
+		  char *msg[255] = {0};
+		  float roll = GLVG_getRoll();
+		  sprintf(msg,"%d %d %d %f\n", time, angular_velocity, angle_raw, roll);
+		  udp_client_send(msg);
+		  time_prev = time;
 	  }
   /* USER CODE END WHILE */
 
