@@ -1,0 +1,15 @@
+T:matrix([a(q1,q2), b(q1,q2)], [c(q1,q2), d(q1,q2)]);
+M:matrix([m1(q2), 0], [0, 1]);
+l11:radcan(jacobian(transpose(T)[j], [q1,q2]).transpose(transpose(T)[i])-jacobian(transpose(T)[i], [q1,q2]).transpose(transpose(T)[j])),i=1,j=1;
+l12:radcan(jacobian(transpose(T)[j], [q1,q2]).transpose(transpose(T)[i])-jacobian(transpose(T)[i], [q1,q2]).transpose(transpose(T)[j])),i=1,j=2;
+l21:radcan(jacobian(transpose(T)[j], [q1,q2]).transpose(transpose(T)[i])-jacobian(transpose(T)[i], [q1,q2]).transpose(transpose(T)[j])),i=2,j=1;
+l22:radcan(jacobian(transpose(T)[j], [q1,q2]).transpose(transpose(T)[i])-jacobian(transpose(T)[i], [q1,q2]).transpose(transpose(T)[j])),i=2,j=2;
+A:radcan(invert(M.T.transpose(T)));
+B:radcan(invert(transpose(T).M.T));
+radcan(A * (m1(q2)*determinant(T)^2) );
+radcan(B * (m1(q2)*determinant(T)^2) );
+
+B1:radcan(l11.transpose(T)[1].A + 1/2*T[1,1]*(T.diff(B,q1).transpose(T)) + l12.transpose(T)[2].A + 1/2*T[2,1]*(T.diff(B,q2).transpose(T)));
+B2:radcan(l21.transpose(T)[1].A + 1/2*T[1,2]*(T.diff(B,q1).transpose(T)) + l22.transpose(T)[2].A + 1/2*T[2,2]*(T.diff(B,q2).transpose(T)));
+
+

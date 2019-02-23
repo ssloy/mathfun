@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "udp_client.h"
+#include "gl_svg.h"
 
 void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 
@@ -12,6 +13,8 @@ volatile uint8_t data[100];
 volatile uint8_t datalen = 0;
 volatile uint32_t message_count = 0;
 struct udp_pcb *upcb = NULL;
+
+volatile int megacounter = 0;
 
 
 /**
@@ -50,6 +53,21 @@ void udp_client_connect(void) {
   * @retval None
   */
 void udp_client_send(void) {
+char msg[255] = {0};
+float roll = GLVG_getRoll();
+float yaw = GLVG_getYaw();
+float pitch = GLVG_getPitch();
+
+sprintf(msg,"%d %f %f %f\n", megacounter, roll, yaw, pitch);
+uint8_t len = strlen(msg);
+struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_POOL);
+if (!p) return;
+pbuf_take(p, (char *)msg, len);
+udp_send(upcb, p);
+pbuf_free(p);
+
+
+	/*
 	char hello[] = "hello";
 	struct pbuf *p;
 
@@ -63,6 +81,7 @@ void udp_client_send(void) {
 	pbuf_take(p, (char *)data, datalen);
 	udp_send(upcb, p);
 	pbuf_free(p);
+*/
 }
 
 /**

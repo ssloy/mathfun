@@ -4,6 +4,8 @@
 #include "stm32f7xx_hal.h"
 #include "stdbool.h"
 
+#define GLVG_485 1
+
 #define FRAME_LENGTH 200
 #define BINS_FRAME_LENGTH 58
 #define GYRO_FRAME_SIZE 120

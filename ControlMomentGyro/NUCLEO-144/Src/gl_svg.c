@@ -1,7 +1,9 @@
-#include "../../libs/inc/gl_svg.h"
+#include "gl_svg.h"
 
 #include "string.h"
 #include "math.h"
+
+extern int megacounter;
 
 #ifdef GLVG_485
 #define GLVG_PACKET_SHIFT 	4
@@ -261,12 +263,14 @@ float GLVG_getGz(){
 }
 
 void GLVG_UART_IRQ_Handler(UART_HandleTypeDef * huart) {
-    if(huart->Instance == GLVG_uart->Instance){
+    if (huart->Instance == GLVG_uart->Instance) {
 		if((__HAL_UART_GET_FLAG(huart, UART_FLAG_RXNE) != RESET)
 			  && (__HAL_UART_GET_IT_SOURCE(huart, UART_IT_RXNE) != RESET)) {
 			if(rxBufferIdx >= GYRO_FRAME_SIZE) rxBufferIdx = 0;
 
+
 			rxBuffer[rxBufferIdx++] =  huart->Instance->RDR;
+			megacounter++;
 
 			if(rxBufferIdx > 3 && rxBuffer[rxBufferIdx - 4] == 0xAA && rxBuffer[rxBufferIdx - 3] == 0xAA){
 				rxBuffer[0] = rxBuffer[rxBufferIdx - 4];

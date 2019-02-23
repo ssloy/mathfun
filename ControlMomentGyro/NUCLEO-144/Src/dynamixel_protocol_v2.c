@@ -12,7 +12,7 @@
  *      Author: folla
  */
 #include <dynamixel_protocol_v2.h>
-
+#if 0
 //legthOfTxPacket = 0;
 uint8_t answerPacketSize = 0;
 uint8_t servoCount = 0;
@@ -387,3 +387,4 @@ unsigned short update_crc(unsigned short crc_accum, unsigned char *data_blk_ptr,
 
     return crc_accum;
 }
+#endif
