@@ -1,18 +1,5 @@
-/*
- * dynamixel_protocol_v2.c
- *
- *  Created on: 18 сент. 2018 г.
- *      Author: blackhand
- */
-
-/*
- * dynamixel_protocol_v1.c
- *
- *  Created on: 6 ����. 2018 �.
- *      Author: folla
- */
 #include <dynamixel_protocol_v2.h>
-#if 0
+
 //legthOfTxPacket = 0;
 uint8_t answerPacketSize = 0;
 uint8_t servoCount = 0;
@@ -84,18 +71,15 @@ void instructionPacketAssebly(uint8_t _ID, uint8_t _instruction, uint8_t* _param
 }
 
 void transmitInstructionPacket(void){
-	HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_SET);
+//?	HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_SET);
 	HAL_UART_Transmit(dynamixelUART,instructionPacket,legthOfTxPacket,4);
-	HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_RESET);
+//?	HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_RESET);
 	HAL_UART_Receive(dynamixelUART,commRxBuffer,answerPacketSize+1,4);
-	HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_SET);
+//?	HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_SET);
 }
 
 void setPosition(uint32_t position, Servo* servo){
-
 	memcpy(&int32_separate, &position, 4);
-
-
 
 	uint16_t reg_addr = 116;
 	memcpy(&int16_hl, &reg_addr, 2);
@@ -130,7 +114,6 @@ void setProfileVelocity(int32_t velocity, Servo* servo){
   	parameters[4] = int32_separate[2];
   	parameters[5] = int32_separate[3];
 
-
   	instructionPacketAssebly(servo->ID, COMMAND_WRITE_DATA, parameters, 6);
   	transmitInstructionPacket();
 }
@@ -150,8 +133,7 @@ void setOperatingMode(uint8_t mode, Servo* servo){
 //  	HAL_Delay(100);
 }
 
-void setVelocity(int32_t velocity, Servo* servo){
-
+void setVelocity(int32_t velocity, Servo* servo) {
 	memcpy(&int32_separate, &velocity, 4);
 
 	uint16_t reg_addr = 104;
@@ -165,7 +147,6 @@ void setVelocity(int32_t velocity, Servo* servo){
   	parameters[3] = int32_separate[1];
   	parameters[4] = int32_separate[2];
   	parameters[5] = int32_separate[3];
-
 
   	instructionPacketAssebly(servo->ID, COMMAND_WRITE_DATA, parameters, 6);
   	transmitInstructionPacket();
@@ -311,7 +292,7 @@ uint8_t dynamixelIRQHandler(UART_HandleTypeDef* huart) {
 		} else{
 			commTxBufferIdx = 0;
 
-			HAL_GPIO_WritePin(RSE_485_GPIO_Port,RSE_485_Pin,RESET);
+//?			HAL_GPIO_WritePin(RSE_485_GPIO_Port,RSE_485_Pin,RESET);
 			__HAL_UART_DISABLE_IT(huart, UART_IT_TXE);
 			//CLEAR_BIT(huart->Instance->CR1, USART_CR1_TXEIE);
 			//__HAL_UART_ENABLE_IT(huart, UART_IT_RXNE);
@@ -330,7 +311,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
 	if (huart == dynamixelUART){
 //		dx_tx_complete = 1;
 
-		HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_RESET);
+//?		HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_RESET);
 		HAL_UART_Receive(dynamixelUART,commRxBuffer,answerPacketSize,HAL_MAX_DELAY);
 		//HAL_UART_Receive_IT(dynamixelUART,commRxBuffer,answerPacketSize);
 
@@ -340,9 +321,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
 }
 
 
-
-unsigned short update_crc(unsigned short crc_accum, unsigned char *data_blk_ptr, unsigned short data_blk_size)
-{
+unsigned short update_crc(unsigned short crc_accum, unsigned char *data_blk_ptr, unsigned short data_blk_size) {
     unsigned short i, j;
     unsigned short crc_table[256] = {
         0x0000, 0x8005, 0x800F, 0x000A, 0x801B, 0x001E, 0x0014, 0x8011,
@@ -379,12 +358,10 @@ unsigned short update_crc(unsigned short crc_accum, unsigned char *data_blk_ptr,
         0x8213, 0x0216, 0x021C, 0x8219, 0x0208, 0x820D, 0x8207, 0x0202
     };
 
-    for(j = 0; j < data_blk_size; j++)
-    {
+    for(j = 0; j < data_blk_size; j++) {
         i = ((unsigned short)(crc_accum >> 8) ^ data_blk_ptr[j]) & 0xFF;
         crc_accum = (crc_accum << 8) ^ crc_table[i];
     }
 
     return crc_accum;
 }
-#endif

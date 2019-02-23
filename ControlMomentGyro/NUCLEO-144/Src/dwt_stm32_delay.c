@@ -16,6 +16,7 @@ HAL_StatusTypeDef DWT_Delay_Init(void) {
     /* Enable TRC */
     CoreDebug->DEMCR |=  CoreDebug_DEMCR_TRCENA_Msk; // 0x01000000;
 
+    DWT->LAR = 0xC5ACCE55;
     /* Disable clock cycle counter */
     DWT->CTRL &= ~DWT_CTRL_CYCCNTENA_Msk; //~0x00000001;
     /* Enable  clock cycle counter */
@@ -33,7 +34,7 @@ HAL_StatusTypeDef DWT_Delay_Init(void) {
     overflow_micros = 4294967295L/MHz;
 
     /* Check if clock cycle counter has started */
-    if(DWT->CYCCNT) {
+    if (DWT->CYCCNT) {
         return HAL_OK; /*clock cycle counter started*/
     } else {
         return HAL_ERROR; /*clock cycle counter not started*/

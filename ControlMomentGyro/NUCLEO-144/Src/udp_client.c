@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "udp_client.h"
 #include "gl_svg.h"
+#include "dwt_stm32_delay.h"
 
 void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 
@@ -59,7 +60,8 @@ float roll = GLVG_getRoll();
 float yaw = GLVG_getYaw();
 float pitch = GLVG_getPitch();
 
-sprintf(msg,"%d %d %f %f %f\n", megacounter1, megacounter2, roll, yaw, pitch);
+int32_t useconds = DWT_us();
+sprintf(msg,"%ld %d %d %f %f %f\n", useconds, megacounter1, megacounter2, roll, yaw, pitch);
 uint8_t len = strlen(msg);
 struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_POOL);
 if (!p) return;

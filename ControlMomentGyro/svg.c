@@ -83,7 +83,7 @@ void *receive_msg(void *sock_desc) {
         shared_clientlen  = clientlen;
         pthread_mutex_unlock(&mutex);
 
-        printf("server recieved %d bytes: \"%s\"\n", n, buf);
+        fprintf(stderr, "server recieved %d bytes: \"%s\"\n", n, buf);
 
 /*
 //        printf("server received %d/%d bytes: %s\n", (int)strlen(buf), n, buf);

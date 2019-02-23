@@ -53,9 +53,10 @@
 
 /* USER CODE BEGIN Includes */
 
+#include "dwt_stm32_delay.h"
 #include "udp_client.h"
 #include "gl_svg.h"
-#include "dwt_stm32_delay.h"
+#include "dynamixel_protocol_v2.h"
 
 /* USER CODE END Includes */
 
@@ -109,8 +110,8 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
 
-//  if (DWT_Delay_Init() != HAL_OK)
-//    _Error_Handler(__FILE__, __LINE__);
+  if (DWT_Delay_Init() != HAL_OK)
+    _Error_Handler(__FILE__, __LINE__);
 
   /* USER CODE END SysInit */
 
@@ -120,16 +121,29 @@ int main(void)
   MX_UART7_Init();
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
-  float coords[3] = {0};
-  GLVG_init(&huart5, coords);
   udp_client_connect();
+//  float coords[3] = {0};
+//  GLVG_init(&huart5, coords);
+  bindDynamixelUART(&huart5);
+
+  Servo serv1;
+  initServo(&serv1,1);
+  setOperatingMode(1,&serv1);
+  enableToque(1,&serv1);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  uint32_t time1 = HAL_GetTick();
+  setVelocity((int32_t)-50, &serv1);
   while (1) {
 	  MX_LWIP_Process();
-	  udp_client_send();
+	  uint32_t time2 = HAL_GetTick();
+	  if (time2-time1>100) {
+		  udp_client_send();
+		  time1 = time2;
+	  }
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
@@ -158,10 +172,11 @@ void SystemClock_Config(void)
 
     /**Initializes the CPU, AHB and APB busses clocks 
     */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = 16;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 8;
   RCC_OscInitStruct.PLL.PLLN = 216;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
@@ -221,14 +236,14 @@ static void MX_UART5_Init(void)
   huart5.Init.WordLength = UART_WORDLENGTH_8B;
   huart5.Init.StopBits = UART_STOPBITS_1;
   huart5.Init.Parity = UART_PARITY_NONE;
-  huart5.Init.Mode = UART_MODE_RX;
+  huart5.Init.Mode = UART_MODE_TX_RX;
   huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart5.Init.OverSampling = UART_OVERSAMPLING_16;
   huart5.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
   huart5.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT|UART_ADVFEATURE_DMADISABLEONERROR_INIT;
   huart5.AdvancedInit.OverrunDisable = UART_ADVFEATURE_OVERRUN_DISABLE;
   huart5.AdvancedInit.DMADisableonRxError = UART_ADVFEATURE_DMA_DISABLEONRXERROR;
-  if (HAL_UART_Init(&huart5) != HAL_OK)
+  if (HAL_RS485Ex_Init(&huart5, UART_DE_POLARITY_HIGH, 0, 0) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
@@ -248,7 +263,9 @@ static void MX_UART7_Init(void)
   huart7.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart7.Init.OverSampling = UART_OVERSAMPLING_16;
   huart7.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart7.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  huart7.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT|UART_ADVFEATURE_DMADISABLEONERROR_INIT;
+  huart7.AdvancedInit.OverrunDisable = UART_ADVFEATURE_OVERRUN_DISABLE;
+  huart7.AdvancedInit.DMADisableonRxError = UART_ADVFEATURE_DMA_DISABLEONRXERROR;
   if (HAL_RS485Ex_Init(&huart7, UART_DE_POLARITY_HIGH, 0, 0) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);

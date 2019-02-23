@@ -1,20 +1,7 @@
-/*
- * dynamixel_protocol_v2.h
- *
- *  Created on: 18 сент. 2018 г.
- *      Author: blackhand
- */
-
 #ifndef DYNAMIXEL_PROTOCOL_V2_H_
 #define DYNAMIXEL_PROTOCOL_V2_H_
 
 
-/*
- * dynamixel_protocol_v1.h
- *
- *  Created on: 6 ����. 2018 �.
- *      Author: Artyom Zubko
- */
 #include "stm32f7xx_hal.h"
 #include <string.h>
 //#########################################################################
@@ -63,7 +50,6 @@
 #define RAM_LOCK                        0x2F
 #define RAM_PUNCH_L                     0x30
 #define RAM_PUNCH_H                     0x31
-
 
 //#########################################################################
 //################ Instruction commands Set ###############################
@@ -192,11 +178,10 @@ typedef struct {
 
 typedef struct{
 	uint8_t data[100];
-}dataToSyncWrite;
+} dataToSyncWrite;
 
 Servo servoArray[NUMBER_OF_SERVOS];
 dataToSyncWrite dataForSyncWrite[NUMBER_OF_SERVOS];
-
 
 uint8_t instructionPacket[300];
 uint8_t receiveBuffer[300];
