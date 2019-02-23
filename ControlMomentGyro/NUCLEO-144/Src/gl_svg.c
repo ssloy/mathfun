@@ -3,7 +3,8 @@
 #include "string.h"
 #include "math.h"
 
-extern int megacounter;
+extern int megacounter1;
+extern int megacounter2;
 
 #ifdef GLVG_485
 #define GLVG_PACKET_SHIFT 	4
@@ -270,9 +271,10 @@ void GLVG_UART_IRQ_Handler(UART_HandleTypeDef * huart) {
 
 
 			rxBuffer[rxBufferIdx++] =  huart->Instance->RDR;
-			megacounter++;
+			megacounter1++;
 
 			if(rxBufferIdx > 3 && rxBuffer[rxBufferIdx - 4] == 0xAA && rxBuffer[rxBufferIdx - 3] == 0xAA){
+				megacounter2++;
 				rxBuffer[0] = rxBuffer[rxBufferIdx - 4];
 				rxBuffer[1] = rxBuffer[rxBufferIdx - 3];
 				packetLength = rxBuffer[2] = rxBuffer[rxBufferIdx - 2];

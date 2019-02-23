@@ -14,7 +14,8 @@ volatile uint8_t datalen = 0;
 volatile uint32_t message_count = 0;
 struct udp_pcb *upcb = NULL;
 
-volatile int megacounter = 0;
+volatile int megacounter1 = 0;
+volatile int megacounter2 = 0;
 
 
 /**
@@ -58,7 +59,7 @@ float roll = GLVG_getRoll();
 float yaw = GLVG_getYaw();
 float pitch = GLVG_getPitch();
 
-sprintf(msg,"%d %f %f %f\n", megacounter, roll, yaw, pitch);
+sprintf(msg,"%d %d %f %f %f\n", megacounter1, megacounter2, roll, yaw, pitch);
 uint8_t len = strlen(msg);
 struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_POOL);
 if (!p) return;

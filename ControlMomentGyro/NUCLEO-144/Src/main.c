@@ -55,6 +55,7 @@
 
 #include "udp_client.h"
 #include "gl_svg.h"
+#include "dwt_stm32_delay.h"
 
 /* USER CODE END Includes */
 
@@ -107,6 +108,9 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
+
+//  if (DWT_Delay_Init() != HAL_OK)
+//    _Error_Handler(__FILE__, __LINE__);
 
   /* USER CODE END SysInit */
 
@@ -221,7 +225,9 @@ static void MX_UART5_Init(void)
   huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart5.Init.OverSampling = UART_OVERSAMPLING_16;
   huart5.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart5.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  huart5.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT|UART_ADVFEATURE_DMADISABLEONERROR_INIT;
+  huart5.AdvancedInit.OverrunDisable = UART_ADVFEATURE_OVERRUN_DISABLE;
+  huart5.AdvancedInit.DMADisableonRxError = UART_ADVFEATURE_DMA_DISABLEONRXERROR;
   if (HAL_UART_Init(&huart5) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
