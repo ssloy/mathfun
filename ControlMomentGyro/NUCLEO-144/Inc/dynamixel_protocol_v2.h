@@ -1,9 +1,23 @@
 #ifndef DYNAMIXEL_PROTOCOL_V2_H_
 #define DYNAMIXEL_PROTOCOL_V2_H_
 
-
 #include "stm32f7xx_hal.h"
 #include <string.h>
+
+#define COMMAND_PING                    0x01
+#define COMMAND_READ_DATA               0x02
+#define COMMAND_WRITE_DATA              0x03
+#define COMMAND_REG_WRITE_DATA          0x04
+#define COMMAND_ACTION                  0x05
+#define COMMAND_RESET                   0x06
+#define COMMAND_SYNC_WRITE              0x83
+#define COMMAND_SYNC_READ               0x82
+
+void torque_on_off(UART_HandleTypeDef* huart, uint8_t id, uint8_t isenabled);
+void set_velocity(UART_HandleTypeDef* huart, uint8_t id, int32_t velocity);
+void set_operating_mode(UART_HandleTypeDef* huart, uint8_t id, uint8_t mode);
+
+/*
 //#########################################################################
 //################ define - Dynamixel Hex code table ######################
 // EEPROM AREA
@@ -53,14 +67,6 @@
 
 //#########################################################################
 //################ Instruction commands Set ###############################
-#define COMMAND_PING                    0x01
-#define COMMAND_READ_DATA               0x02
-#define COMMAND_WRITE_DATA              0x03
-#define COMMAND_REG_WRITE_DATA          0x04
-#define COMMAND_ACTION                  0x05
-#define COMMAND_RESET                   0x06
-#define COMMAND_SYNC_WRITE              0x83
-#define COMMAND_SYNC_READ               0x82
 
 //#########################################################################
 //################ Instruction packet lengths #############################
@@ -211,5 +217,6 @@ void setBaudrate(uint8_t);
 void enableToque(uint8_t, Servo*);
 void setOperatingMode(uint8_t, Servo*);
 void setVelocity(int32_t, Servo*);
+*/
 
 #endif /* DYNAMIXEL_PROTOCOL_V2_H_ */

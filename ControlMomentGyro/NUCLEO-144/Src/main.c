@@ -123,12 +123,16 @@ int main(void)
   /* USER CODE BEGIN 2 */
   udp_client_connect();
 //  GLVG_init(&huart5);
-  bindDynamixelUART(&huart5);
+//  bindDynamixelUART(&huart5);
 
+  /*
   Servo serv1;
   initServo(&serv1,1);
   setOperatingMode(1,&serv1);
   enableToque(1,&serv1);
+  */
+  set_operating_mode(&huart5, 1, 1);
+  torque_on_off(&huart5, 1, 1);
 
   /* USER CODE END 2 */
 
@@ -138,15 +142,18 @@ int main(void)
   uint16_t angle_raw;
   int16_t angular_velocity;
 
-  setVelocity((int32_t)-50, &serv1);
+//  setVelocity((int32_t)-50, &serv1);
   while (1) {
-	  if (time_prev>10L*1000L*1000L) setVelocity((int32_t)0, &serv1);
+//	  if (time_prev>10L*1000L*1000L) setVelocity((int32_t)0, &serv1);
 	  MX_LWIP_Process();
 	  uint32_t time = DWT_us();
 	  if (time-time_prev>100000L) {
+		  set_velocity(&huart5, 1, 0);
+		  /*
 		  readData(&serv1, 128, 8);
 		  memcpy(&angular_velocity,&commRxBuffer[9],4);
 		  memcpy(&angle_raw,&commRxBuffer[13],4);
+		  */
 
 		  char *msg[255] = {0};
 		  float roll = GLVG_getRoll();
