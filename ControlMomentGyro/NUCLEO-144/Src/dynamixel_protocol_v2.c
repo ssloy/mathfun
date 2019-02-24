@@ -1,378 +1,54 @@
 #include <dynamixel_protocol_v2.h>
 
-/*
-//legthOfTxPacket = 0;
-uint8_t answerPacketSize = 0;
-uint8_t servoCount = 0;
+// instruction for DXL Protocol
+#define INST_PING               1
+#define INST_READ               2
+#define INST_WRITE              3
+#define INST_REG_WRITE          4
+#define INST_ACTION             5
+#define INST_FACTORY_RESET      6
+#define INST_SYNC_WRITE         131     // 0x83
+#define INST_BULK_READ          146     // 0x92
+// only for 2.0
+#define INST_REBOOT             8
+#define INST_CLEAR              16      // 0x10
+#define INST_STATUS             85      // 0x55
+#define INST_SYNC_READ          130     // 0x82
+#define INST_BULK_WRITE         147     // 0x93
 
+#define DXL_MAKEWORD(a, b)  ((uint16_t)( ((uint8_t )(((uint32_t)(a)) & 0xff  )) | ((uint16_t)((uint8_t )(((uint32_t)(b)) & 0xff  ))) << 8 ) )
+#define DXL_MAKEDWORD(a, b) ((uint32_t)( ((uint16_t)(((uint32_t)(a)) & 0xffff)) | ((uint32_t)((uint16_t)(((uint32_t)(b)) & 0xffff))) << 16) )
+#define DXL_LOBYTE(w)       ((uint8_t )( ((uint32_t)(w)) & 0xff  ))
+#define DXL_LOWORD(l)       ((uint16_t)( ((uint32_t)(l)) & 0xffff))
+#define DXL_HIBYTE(w)       ((uint8_t )( (((uint32_t)(w)) >> 8 ) & 0xff  ))
+#define DXL_HIWORD(l)       ((uint16_t)( (((uint32_t)(l)) >> 16) & 0xffff))
 
-volatile uint16_t commRxBufferIdx = 0;
-volatile uint16_t commTxBufferIdx = 0;
+#define PKT_HEADER0             0
+#define PKT_HEADER1             1
+#define PKT_HEADER2             2
+#define PKT_RESERVED            3
+#define PKT_ID                  4
+#define PKT_LENGTH_L            5
+#define PKT_LENGTH_H            6
+#define PKT_INSTRUCTION         7
+#define PKT_ERROR               8
+#define PKT_PARAMETER0          8
 
-uint8_t int16_hl[2];
-uint8_t int32_separate[4];
+#define TX_PACKET_MAX_LEN  (64)
+#define RX_PACKET_MAX_LEN  (64)
 
-void bindDynamixelUART(UART_HandleTypeDef* _uart){
-	dynamixelUART = _uart;
-//	__HAL_UART_ENABLE_IT(_uart, UART_IT_RXNE);
+volatile uint8_t tx_packet[TX_PACKET_MAX_LEN];
+volatile uint8_t rx_packet[RX_PACKET_MAX_LEN];
+volatile static UART_HandleTypeDef* huart = NULL;
+volatile static uint32_t uart_baudrate = 115200;
+volatile uint32_t dynamixel_comm_err_count = 0;
+
+void dynamixel_bind_uart(const UART_HandleTypeDef* _huart, uint32_t baudrate) {
+	huart = (UART_HandleTypeDef*)_huart;
+	uart_baudrate = baudrate;
 }
 
-void initServo(Servo* servo,uint8_t _ID){
-	servo->ID = _ID;
-	servoCount++;
-}
-
-void instructionPacketAssebly(uint8_t _ID, uint8_t _instruction, uint8_t* _parameters, uint8_t _numberOfParameters){
-	    instructionPacket[0] = HEADER;
-	    instructionPacket[1] = HEADER;
-	    instructionPacket[2] = HEADER2;
-	    instructionPacket[3] = RESERVED;
-	    instructionPacket[4] = _ID;
-
-	    uint16_t lenght = _numberOfParameters + 3;
-		memcpy(&int16_hl, &lenght, 2);
-		uint8_t Lenght_H = int16_hl[1];
-		uint8_t Lenght_L = int16_hl[0];
-
-	    instructionPacket[5] = Lenght_L; // length
-	    instructionPacket[6] = Lenght_H; // length
-
-	    instructionPacket[7] = _instruction;
-
-	    for (int i = 1; i < _numberOfParameters+1; i++){
-	    	instructionPacket[7 + i] = _parameters[i-1];
-	    }
-
-	    legthOfTxPacket = lenght + 7;//final packet size for transmitting
-
-	    unsigned short crc = update_crc(0, instructionPacket, legthOfTxPacket-2);
-		memcpy(&int16_hl, &crc, 2);
-		uint8_t CRC_H = int16_hl[1];
-		uint8_t CRC_L = int16_hl[0];
-//		uint8_t CRC_L = (crc & 0x00FF); //Little-endian
-//		uint8_t CRC_H = (crc>>8) & 0x00FF;
-
-	    instructionPacket[legthOfTxPacket-2] = CRC_L; //CRC field
-	    instructionPacket[legthOfTxPacket-1] = CRC_H; //CRC field
-
-	    if (_instruction == COMMAND_WRITE_DATA)
-	    {
-	    	answerPacketSize = 11;
-	    } else if(_instruction == COMMAND_SYNC_WRITE) {
-	    	answerPacketSize = 11;
-	    } else if (_instruction == COMMAND_READ_DATA){
-	    	uint16_t assembledSizeVar = 0;
-	    	memcpy(&assembledSizeVar, &instructionPacket[10], 2);
-	    	answerPacketSize = assembledSizeVar + 11;
-	    } else if (_instruction == COMMAND_SYNC_READ){
-	    	uint16_t assembledSizeVar = 0;
-	    	memcpy(&assembledSizeVar, &instructionPacket[10], 2);
-	    	answerPacketSize = (assembledSizeVar + 11) * NUMBER_OF_SERVOS;
-	    }
-}
-
-void transmitInstructionPacket(void){
-//?	HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_SET);
-	HAL_UART_Transmit(dynamixelUART,instructionPacket,legthOfTxPacket,4);
-//?	HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_RESET);
-	HAL_UART_Receive(dynamixelUART,commRxBuffer,answerPacketSize+1,4);
-//?	HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_SET);
-}
-
-void setPosition(uint32_t position, Servo* servo){
-	memcpy(&int32_separate, &position, 4);
-
-	uint16_t reg_addr = 116;
-	memcpy(&int16_hl, &reg_addr, 2);
-	uint8_t REG_H = int16_hl[1];
-	uint8_t REG_L = int16_hl[0];
-
-  	parameters[0] = REG_L;
-  	parameters[1] = REG_H;
-  	parameters[2] = int32_separate[0];
-  	parameters[3] = int32_separate[1];
-  	parameters[4] = int32_separate[2];
-  	parameters[5] = int32_separate[3];
-
-
-  	instructionPacketAssebly(servo->ID, COMMAND_WRITE_DATA, parameters, 6);
-  	transmitInstructionPacket();
-}
-
-void setProfileVelocity(int32_t velocity, Servo* servo){
-
-	memcpy(&int32_separate, &velocity, 4);
-
-	uint16_t reg_addr = 112;
-	memcpy(&int16_hl, &reg_addr, 2);
-	uint8_t REG_H = int16_hl[1];
-	uint8_t REG_L = int16_hl[0];
-
-  	parameters[0] = REG_L;
-  	parameters[1] = REG_H;
-  	parameters[2] = int32_separate[0];
-  	parameters[3] = int32_separate[1];
-  	parameters[4] = int32_separate[2];
-  	parameters[5] = int32_separate[3];
-
-  	instructionPacketAssebly(servo->ID, COMMAND_WRITE_DATA, parameters, 6);
-  	transmitInstructionPacket();
-}
-
-void setOperatingMode(uint8_t mode, Servo* servo){
-	uint16_t reg_addr = 11;
-	memcpy(&int16_hl, &reg_addr, 2);
-	uint8_t REG_H = int16_hl[1];
-	uint8_t REG_L = int16_hl[0];
-
-  	parameters[0] = REG_L;
-  	parameters[1] = REG_H;
-  	parameters[2] = mode;
-  	instructionPacketAssebly(servo->ID, COMMAND_WRITE_DATA, parameters, 3);
-
-  	transmitInstructionPacket();
-//  	HAL_Delay(100);
-}
-
-void setVelocity(int32_t velocity, Servo* servo) {
-	memcpy(&int32_separate, &velocity, 4);
-
-	uint16_t reg_addr = 104;
-	memcpy(&int16_hl, &reg_addr, 2);
-	uint8_t REG_H = int16_hl[1];
-	uint8_t REG_L = int16_hl[0];
-
-  	parameters[0] = REG_L;
-  	parameters[1] = REG_H;
-  	parameters[2] = int32_separate[0];
-  	parameters[3] = int32_separate[1];
-  	parameters[4] = int32_separate[2];
-  	parameters[5] = int32_separate[3];
-
-  	instructionPacketAssebly(servo->ID, COMMAND_WRITE_DATA, parameters, 6);
-  	transmitInstructionPacket();
-}
-
-void enableToque(uint8_t isEnable, Servo* servo){
-	uint16_t reg_addr = 64;
-	memcpy(&int16_hl, &reg_addr, 2);
-	uint8_t REG_H = int16_hl[1];
-	uint8_t REG_L = int16_hl[0];
-
-  	parameters[0] = REG_L;
-  	parameters[1] = REG_H;
-  	parameters[2] = isEnable;
-  	instructionPacketAssebly(servo->ID, COMMAND_WRITE_DATA, parameters, 3);
-
-  	transmitInstructionPacket();
-//  	HAL_Delay(100);
-}
-
-void readData(Servo* servo, uint16_t startAdress, uint16_t sizeOfData){
-
-	memcpy(&int16_hl, &startAdress, 2);
-	uint8_t START_ADRESS_H = int16_hl[1];
-	uint8_t START_ADRESS_L = int16_hl[0];
-
-	parameters[0] = START_ADRESS_L;
-	parameters[1] = START_ADRESS_H;
-
-	memcpy(&int16_hl, &sizeOfData, 2);
-	uint8_t SIZE_OF_DATA_H = int16_hl[1];
-	uint8_t SIZE_OF_DATA_L = int16_hl[0];
-
-	parameters[2] = SIZE_OF_DATA_L;
-	parameters[3] = SIZE_OF_DATA_H;
-
-
-	instructionPacketAssebly(servo->ID, COMMAND_READ_DATA, parameters, 4);
-	transmitInstructionPacket();
-}
-
-//void writeData(uint8_t _ID,  ){
-//
-//}
-
-void syncWrite(uint8_t _servoCount, dataToSyncWrite* _dataToWrite, uint16_t _dataLenght, uint16_t _startAdress){
-//	while (rxCompleteFlag != 1){
-//	}
-	dataToSyncWrite as = _dataToWrite[1];
-	memcpy(&int16_hl, &_startAdress, 2);
-	uint8_t START_ADRESS_H = int16_hl[1];
-	uint8_t START_ADRESS_L = int16_hl[0];
-
-	parameters[0] = START_ADRESS_L;
-	parameters[1] = START_ADRESS_H;
-
-	memcpy(&int16_hl, &_dataLenght, 2);
-	uint8_t SIZE_OF_DATA_H = int16_hl[1];
-	uint8_t SIZE_OF_DATA_L = int16_hl[0];
-
-	parameters[2] = SIZE_OF_DATA_L;
-	parameters[3] = SIZE_OF_DATA_H;
-
-	int offset = 0;
-	for (int i = 0; i <_servoCount; i++){
-		parameters[i+4+offset] = i; //ID of servo
-		for (int a = 0; a < _dataLenght; a++){
-			parameters[a+5+offset+i] = _dataToWrite[i].data[a];
-		}
-		offset += _dataLenght;
-	}
-
-  	instructionPacketAssebly(BROADCAST_ID, COMMAND_SYNC_WRITE, parameters, _dataLenght*_servoCount+2 + 4);
-
-  	transmitInstructionPacket();
-
-}
-
-void syncRead(Servo* _servoArray, uint8_t _servoCount, uint16_t _startAdress, uint16_t _dataLenght){
-	memcpy(&int16_hl, &_startAdress, 2);
-	uint8_t START_ADRESS_H = int16_hl[1];
-	uint8_t START_ADRESS_L = int16_hl[0];
-
-	parameters[0] = START_ADRESS_L;
-	parameters[1] = START_ADRESS_H;
-
-	memcpy(&int16_hl, &_dataLenght, 2);
-	uint8_t SIZE_OF_DATA_H = int16_hl[1];
-	uint8_t SIZE_OF_DATA_L = int16_hl[0];
-
-	parameters[2] = SIZE_OF_DATA_L;
-	parameters[3] = SIZE_OF_DATA_H;
-
-	for (int i = 0; i <_servoCount; i++){
-		parameters[i+4] = _servoArray[i].ID;
-	}
-
-	instructionPacketAssebly(BROADCAST_ID, COMMAND_SYNC_READ, parameters, 4 + _servoCount);
-	transmitInstructionPacket();
-}
-
-void setID(uint8_t _ID, Servo* servo){
-	parameters[0] = EEPROM_ID;
-  	parameters[1] = _ID;
-
-  	instructionPacketAssebly(BROADCAST_ID, COMMAND_WRITE_DATA, parameters, 2);
-
-  	transmitInstructionPacket();
-    HAL_Delay(100);
-}
-
-void setBaudrate(uint8_t _baudrate){
-	parameters[0] = EEPROM_BAUD_RATE;
-  	parameters[1] = _baudrate;
-
-  	instructionPacketAssebly(BROADCAST_ID, COMMAND_WRITE_DATA, parameters, 2);
-  	transmitInstructionPacket();
-}
-
-uint8_t dynamixelIRQHandler(UART_HandleTypeDef* huart) {
-	if (dynamixelUART->Instance == huart->Instance) {
-	if ((__HAL_UART_GET_FLAG(huart, UART_FLAG_RXNE) != RESET) && (__HAL_UART_GET_IT_SOURCE(huart, UART_IT_RXNE) != RESET)) {
-
-		rxCompleteFlag = 0;
-		commRxBuffer[commRxBufferIdx++] = huart->Instance->RDR;
-
-		if (commRxBufferIdx == answerPacketSize)
-		{
-			commRxBufferIdx = 0;
-			rxCompleteFlag = 1;
-			rxCompleteCalback();
-
-
-		}
-		__HAL_UART_FLUSH_DRREGISTER(huart);
-		return 1;
-	}
-
-	if((__HAL_UART_GET_FLAG(huart, UART_FLAG_TXE) != RESET)	&& (__HAL_UART_GET_IT_SOURCE(huart, UART_IT_TXE) != RESET)){
-
-		if(commTxBufferIdx < legthOfTxPacket+1){
-			huart->Instance->TDR = instructionPacket[commTxBufferIdx++];
-		} else{
-			commTxBufferIdx = 0;
-
-//?			HAL_GPIO_WritePin(RSE_485_GPIO_Port,RSE_485_Pin,RESET);
-			__HAL_UART_DISABLE_IT(huart, UART_IT_TXE);
-			//CLEAR_BIT(huart->Instance->CR1, USART_CR1_TXEIE);
-			//__HAL_UART_ENABLE_IT(huart, UART_IT_RXNE);
-		}
-		return 1;
-	}
-
-}
-__HAL_UART_FLUSH_DRREGISTER(huart);
-return 0;
-}
-
-
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
-
-	if (huart == dynamixelUART){
-//		dx_tx_complete = 1;
-
-//?		HAL_GPIO_WritePin(RSE_485_GPIO_Port, RSE_485_Pin, GPIO_PIN_RESET);
-		HAL_UART_Receive(dynamixelUART,commRxBuffer,answerPacketSize,HAL_MAX_DELAY);
-		//HAL_UART_Receive_IT(dynamixelUART,commRxBuffer,answerPacketSize);
-
-		return;
-	}
-
-}
- */
-
-#if 0
-// implementation from the robotis manual
-const uint16_t crc16_table[256] = {
-		0x0000, 0x8005, 0x800F, 0x000A, 0x801B, 0x001E, 0x0014, 0x8011,
-		0x8033, 0x0036, 0x003C, 0x8039, 0x0028, 0x802D, 0x8027, 0x0022,
-		0x8063, 0x0066, 0x006C, 0x8069, 0x0078, 0x807D, 0x8077, 0x0072,
-		0x0050, 0x8055, 0x805F, 0x005A, 0x804B, 0x004E, 0x0044, 0x8041,
-		0x80C3, 0x00C6, 0x00CC, 0x80C9, 0x00D8, 0x80DD, 0x80D7, 0x00D2,
-		0x00F0, 0x80F5, 0x80FF, 0x00FA, 0x80EB, 0x00EE, 0x00E4, 0x80E1,
-		0x00A0, 0x80A5, 0x80AF, 0x00AA, 0x80BB, 0x00BE, 0x00B4, 0x80B1,
-		0x8093, 0x0096, 0x009C, 0x8099, 0x0088, 0x808D, 0x8087, 0x0082,
-		0x8183, 0x0186, 0x018C, 0x8189, 0x0198, 0x819D, 0x8197, 0x0192,
-		0x01B0, 0x81B5, 0x81BF, 0x01BA, 0x81AB, 0x01AE, 0x01A4, 0x81A1,
-		0x01E0, 0x81E5, 0x81EF, 0x01EA, 0x81FB, 0x01FE, 0x01F4, 0x81F1,
-		0x81D3, 0x01D6, 0x01DC, 0x81D9, 0x01C8, 0x81CD, 0x81C7, 0x01C2,
-		0x0140, 0x8145, 0x814F, 0x014A, 0x815B, 0x015E, 0x0154, 0x8151,
-		0x8173, 0x0176, 0x017C, 0x8179, 0x0168, 0x816D, 0x8167, 0x0162,
-		0x8123, 0x0126, 0x012C, 0x8129, 0x0138, 0x813D, 0x8137, 0x0132,
-		0x0110, 0x8115, 0x811F, 0x011A, 0x810B, 0x010E, 0x0104, 0x8101,
-		0x8303, 0x0306, 0x030C, 0x8309, 0x0318, 0x831D, 0x8317, 0x0312,
-		0x0330, 0x8335, 0x833F, 0x033A, 0x832B, 0x032E, 0x0324, 0x8321,
-		0x0360, 0x8365, 0x836F, 0x036A, 0x837B, 0x037E, 0x0374, 0x8371,
-		0x8353, 0x0356, 0x035C, 0x8359, 0x0348, 0x834D, 0x8347, 0x0342,
-		0x03C0, 0x83C5, 0x83CF, 0x03CA, 0x83DB, 0x03DE, 0x03D4, 0x83D1,
-		0x83F3, 0x03F6, 0x03FC, 0x83F9, 0x03E8, 0x83ED, 0x83E7, 0x03E2,
-		0x83A3, 0x03A6, 0x03AC, 0x83A9, 0x03B8, 0x83BD, 0x83B7, 0x03B2,
-		0x0390, 0x8395, 0x839F, 0x039A, 0x838B, 0x038E, 0x0384, 0x8381,
-		0x0280, 0x8285, 0x828F, 0x028A, 0x829B, 0x029E, 0x0294, 0x8291,
-		0x82B3, 0x02B6, 0x02BC, 0x82B9, 0x02A8, 0x82AD, 0x82A7, 0x02A2,
-		0x82E3, 0x02E6, 0x02EC, 0x82E9, 0x02F8, 0x82FD, 0x82F7, 0x02F2,
-		0x02D0, 0x82D5, 0x82DF, 0x02DA, 0x82CB, 0x02CE, 0x02C4, 0x82C1,
-		0x8243, 0x0246, 0x024C, 0x8249, 0x0258, 0x825D, 0x8257, 0x0252,
-		0x0270, 0x8275, 0x827F, 0x027A, 0x826B, 0x026E, 0x0264, 0x8261,
-		0x0220, 0x8225, 0x822F, 0x022A, 0x823B, 0x023E, 0x0234, 0x8231,
-		0x8213, 0x0216, 0x021C, 0x8219, 0x0208, 0x820D, 0x8207, 0x0202
-};
-
-// CRC-16-ANSI (aka CRC-16-IBM) Polynomial: x^16 + x^15 + x^2 + 1
-uint16_t crc16(const uint8_t *data_blk_ptr, const uint16_t data_blk_size) {
-	uint16_t i, j=0;
-	uint16_t crc_accum = 0;
-    for (j=0; j < data_blk_size; j++) {
-		i = ((uint16_t)(crc_accum >> 8) ^ data_blk_ptr[j]) & 0xFF;
-		crc_accum = (crc_accum << 8) ^ crc16_table[i];
-	}
-	return crc_accum;
-}
-#endif
-
-
-// CRC-16-IBM (aka CRC-16-ANSI) Polynomial: x^16 + x^15 + x^2 + 1
+// CRC-16-IBM (aka CRC-16-ANSI) Polynomial: x^16 + x^15 + x^2 + 1 ; check robotis manual for a look-up table implementation
 uint16_t crc16(uint8_t *data, uint16_t length) {
 	uint16_t crc16 = 0;
 	uint16_t i, j;
@@ -389,11 +65,100 @@ uint16_t crc16(uint8_t *data, uint16_t length) {
 	return crc16;
 }
 
-void transmit_instruction_packet(const UART_HandleTypeDef* huart, const uint8_t *packet, const uint8_t size, const uint8_t status_packet_size) {
+void add_stuffing(uint8_t *packet) {
+	uint8_t *packet_ptr;
+	uint16_t i;
+	uint16_t packet_length_before_crc;
+	uint16_t out_index, in_index;
+
+	int packet_length_in = DXL_MAKEWORD(packet[PKT_LENGTH_L], packet[PKT_LENGTH_H]);
+	int packet_length_out = packet_length_in;
+
+	if (packet_length_in < 8) // INSTRUCTION, ADDR_L, ADDR_H, CRC16_L, CRC16_H + FF FF FD
+		return;
+
+	packet_length_before_crc = packet_length_in - 2;
+	for (i = 3; i < packet_length_before_crc; i++) {
+		packet_ptr = &packet[i+PKT_INSTRUCTION-2];
+		if (packet_ptr[0] == 0xFF && packet_ptr[1] == 0xFF && packet_ptr[2] == 0xFD)
+			packet_length_out++;
+	}
+
+	if (packet_length_in == packet_length_out)  // no stuffing required
+		return;
+
+	out_index  = packet_length_out + 6 - 2;  // last index before crc
+	in_index   = packet_length_in  + 6 - 2;  // last index before crc
+	while (out_index != in_index) {
+		if (packet[in_index] == 0xFD && packet[in_index-1] == 0xFF && packet[in_index-2] == 0xFF) {
+			packet[out_index--] = 0xFD; // byte stuffing
+			if (out_index != in_index) {
+				packet[out_index--] = packet[in_index--]; // FD
+				packet[out_index--] = packet[in_index--]; // FF
+				packet[out_index--] = packet[in_index--]; // FF
+			}
+		} else {
+			packet[out_index--] = packet[in_index--];
+		}
+	}
+
+	packet[PKT_LENGTH_L] = DXL_LOBYTE(packet_length_out);
+	packet[PKT_LENGTH_H] = DXL_HIBYTE(packet_length_out);
+
+	return;
+}
+
+void remove_stuffing(uint8_t *packet) {
+	uint16_t i = 0;
+	int index = 0;
+	int packet_length_in = DXL_MAKEWORD(packet[PKT_LENGTH_L], packet[PKT_LENGTH_H]);
+	int packet_length_out = packet_length_in;
+
+	index = PKT_INSTRUCTION;
+	for (i = 0; i < packet_length_in - 2; i++) { // except CRC
+		if (packet[i + PKT_INSTRUCTION] == 0xFD && packet[i + PKT_INSTRUCTION + 1] == 0xFD && packet[i + PKT_INSTRUCTION - 1] == 0xFF && packet[i + PKT_INSTRUCTION - 2] == 0xFF) {   // FF FF FD FD
+			packet_length_out--;
+			i++;
+		}
+		packet[index++] = packet[i + PKT_INSTRUCTION];
+	}
+	packet[index++] = packet[PKT_INSTRUCTION + packet_length_in - 2];
+	packet[index++] = packet[PKT_INSTRUCTION + packet_length_in - 1];
+
+	packet[PKT_LENGTH_L] = DXL_LOBYTE(packet_length_out);
+	packet[PKT_LENGTH_H] = DXL_HIBYTE(packet_length_out);
+}
+
+#if 0
+
+#define COMMAND_PING                    0x01
+#define COMMAND_READ_DATA               0x02
+#define COMMAND_WRITE_DATA              0x03
+#define COMMAND_REG_WRITE_DATA          0x04
+#define COMMAND_ACTION                  0x05
+#define COMMAND_RESET                   0x06
+#define COMMAND_SYNC_WRITE              0x83
+#define COMMAND_SYNC_READ               0x82
+
+
+void transmit_instruction_packet(const uint8_t *packet, const uint8_t size, const uint8_t status_packet_size) {
+	if (!huart) {
+		dynamixel_comm_err_count++;
+		return;
+	}
 	HAL_UART_Transmit(huart, packet, size, 4);
 	uint8_t rxbuffer[256] = {0};
-	HAL_UART_Receive(huart, rxbuffer, status_packet_size + 1, 4);
-	rxbuffer[0] = rxbuffer[1];
+	if (HAL_OK != HAL_UART_Receive(huart, rxbuffer, status_packet_size + 1, 4)) { // TODO check why I had +1 here
+		dynamixel_comm_err_count++;
+		return;
+	}
+
+	uint16_t crc1 = crc16(rxbuffer+1, status_packet_size-2);
+	uint16_t crc2 = (uint16_t)(rxbuffer[1+status_packet_size - 2]) | ((uint16_t)(rxbuffer[1+status_packet_size - 1]) << 8);
+	if (crc1 != crc2) {
+		dynamixel_comm_err_count++;
+		return;
+	}
 }
 
 // this function supposes that the packet should not exceed 255 bytes
@@ -433,7 +198,7 @@ void instruction_packet_assembly(uint8_t *packet, uint8_t *instruction_packet_si
 	}
 }
 
-void set_operating_mode(UART_HandleTypeDef* huart, uint8_t id, uint8_t mode) {
+void dynamixel_set_operating_mode(uint8_t id, uint8_t mode) {
 	uint8_t params[255] = {0};
   	params[0] = 11; //  address     & 0x00FF;
   	params[1] = 0;  // (address>>8) & 0x00FF;
@@ -442,11 +207,10 @@ void set_operating_mode(UART_HandleTypeDef* huart, uint8_t id, uint8_t mode) {
   	uint8_t packet[255] = {0};
   	uint8_t status_packet_size = 0, instruction_packet_size = 0;
   	instruction_packet_assembly(packet, &instruction_packet_size, &status_packet_size, id, COMMAND_WRITE_DATA, params, 3);
-
-  	transmit_instruction_packet(huart, packet, instruction_packet_size, status_packet_size);
+  	transmit_instruction_packet(packet, instruction_packet_size, status_packet_size);
 }
 
-void set_velocity(UART_HandleTypeDef* huart, uint8_t id, int32_t velocity) {
+void dynamixel_set_velocity(uint8_t id, int32_t velocity) {
 	uint8_t params[255] = {0};
   	params[0] = 104; //  address     & 0x00FF;
   	params[1] = 0;   // (address>>8) & 0x00FF;
@@ -458,11 +222,10 @@ void set_velocity(UART_HandleTypeDef* huart, uint8_t id, int32_t velocity) {
   	uint8_t packet[255] = {0};
   	uint8_t status_packet_size = 0, instruction_packet_size = 0;
   	instruction_packet_assembly(packet, &instruction_packet_size, &status_packet_size, id, COMMAND_WRITE_DATA, params, 6);
-
-  	transmit_instruction_packet(huart, packet, instruction_packet_size, status_packet_size);
+  	transmit_instruction_packet(packet, instruction_packet_size, status_packet_size);
 }
 
-void torque_on_off(UART_HandleTypeDef* huart, uint8_t id, uint8_t isenabled) {
+void dynamixel_torque_on_off(uint8_t id, uint8_t isenabled) {
 	uint8_t params[255] = {0};
   	params[0] = 64;
   	params[1] = 0;
@@ -470,6 +233,108 @@ void torque_on_off(UART_HandleTypeDef* huart, uint8_t id, uint8_t isenabled) {
   	uint8_t packet[255] = {0};
   	uint8_t status_packet_size = 0, instruction_packet_size = 0;
   	instruction_packet_assembly(packet, &instruction_packet_size, &status_packet_size, id, COMMAND_WRITE_DATA, params, 3);
+  	transmit_instruction_packet(packet, instruction_packet_size, status_packet_size);
+}
+#endif
 
-  	transmit_instruction_packet(huart, packet, instruction_packet_size, status_packet_size);
+
+void transmit_packet() {
+  uint16_t total_packet_length = 0;
+  uint16_t written_packet_length = 0;
+  uint16_t crc;
+
+  /*
+  if (g_is_using[port_num])
+  {
+    packetData[port_num].communication_result = COMM_PORT_BUSY;
+    return;
+  }
+  g_is_using[port_num] = True;
+  */
+
+  // byte stuffing for header
+  add_stuffing(tx_packet);
+
+  // check max packet length
+  total_packet_length = DXL_MAKEWORD(tx_packet[PKT_LENGTH_L], tx_packet[PKT_LENGTH_H]) + 7;   // 7: HEADER0 HEADER1 HEADER2 RESERVED ID LENGTH_L LENGTH_H
+  if (total_packet_length > TX_PACKET_MAX_LEN) {
+//    g_is_using[port_num] = False;
+//    packetData[port_num].communication_result = COMM_TX_ERROR;
+    return;
+  }
+
+  // add packet header
+  tx_packet[PKT_HEADER0]  = 0xFF;
+  tx_packet[PKT_HEADER1]  = 0xFF;
+  tx_packet[PKT_HEADER2]  = 0xFD;
+  tx_packet[PKT_RESERVED] = 0x00;
+
+  // add CRC16
+  crc = crc16(tx_packet, total_packet_length - 2);  // -2 for the CRC itself
+  tx_packet[total_packet_length - 2] = DXL_LOBYTE(crc);
+  tx_packet[total_packet_length - 1] = DXL_HIBYTE(crc);
+
+  memset(rx_packet, 0, RX_PACKET_MAX_LEN);
+  uint32_t tx_timeout = (1000L*9L*(uint32_t)(total_packet_length))/uart_baudrate + 1;
+  HAL_StatusTypeDef txres = HAL_UART_Transmit(huart, tx_packet, total_packet_length, tx_timeout);
+  HAL_StatusTypeDef rxres = HAL_UART_Receive(huart, rx_packet, 12 + 1, 4);
+
+  tx_packet[63] = txres;
+  rx_packet[63] = rxres;
+
+  /*
+  // tx packet
+  clearPort(port_num);
+  written_packet_length = writePort(port_num, packetData[port_num].tx_packet, total_packet_length);
+  if (total_packet_length != written_packet_length)
+  {
+    g_is_using[port_num] = False;
+    packetData[port_num].communication_result = COMM_TX_FAIL;
+    return;
+  }
+
+  packetData[port_num].communication_result = COMM_SUCCESS;
+  */
+}
+
+void dynamixel_write(uint8_t id, uint16_t address, uint8_t *data, uint16_t length) {
+	tx_packet[PKT_ID] = id;
+	tx_packet[PKT_LENGTH_L] = DXL_LOBYTE(length + 5);
+	tx_packet[PKT_LENGTH_H] = DXL_HIBYTE(length + 5);
+	tx_packet[PKT_INSTRUCTION] = INST_WRITE;
+	tx_packet[PKT_PARAMETER0 + 0] = DXL_LOBYTE(address);
+	tx_packet[PKT_PARAMETER0 + 1] = DXL_HIBYTE(address);
+
+	for (uint16_t i=0; i<length; i++)
+		tx_packet[PKT_PARAMETER0 + 2 + i] = data[i];
+	transmit_packet();
+}
+
+void dynamixel_read(uint8_t id, uint16_t address, uint16_t length) {
+	tx_packet[PKT_ID] = id;
+	tx_packet[PKT_LENGTH_L] = 7;
+	tx_packet[PKT_LENGTH_H] = 0;
+	tx_packet[PKT_INSTRUCTION] = INST_READ;
+	tx_packet[PKT_PARAMETER0 + 0] = DXL_LOBYTE(address);
+	tx_packet[PKT_PARAMETER0 + 1] = DXL_HIBYTE(address);
+	tx_packet[PKT_PARAMETER0 + 2] = DXL_LOBYTE(length);
+	tx_packet[PKT_PARAMETER0 + 3] = DXL_HIBYTE(length);
+	transmit_packet();
+}
+
+
+void dynamixel_set_operating_mode(uint8_t id, uint8_t mode) {
+	dynamixel_write(id, 11, &mode, 1);
+}
+
+void dynamixel_torque_on_off(uint8_t id, uint8_t isenabled) {
+	dynamixel_write(id, 64, &isenabled, 1);
+}
+
+void dynamixel_set_velocity(uint8_t id, int32_t velocity) {
+	dynamixel_write(id, 104, (uint8_t *)&velocity, 4);
+}
+
+void dynamixel_set_current(uint8_t id, int16_t current) {
+	dynamixel_write(id, 102, (uint8_t *)&current, 2);
 }

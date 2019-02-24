@@ -66,6 +66,9 @@ UART_HandleTypeDef huart5;
 UART_HandleTypeDef huart7;
 
 /* USER CODE BEGIN PV */
+
+extern uint32_t dynamixel_comm_err_count;
+
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE END PV */
@@ -123,41 +126,39 @@ int main(void)
   /* USER CODE BEGIN 2 */
   udp_client_connect();
 //  GLVG_init(&huart5);
-//  bindDynamixelUART(&huart5);
 
-  /*
-  Servo serv1;
-  initServo(&serv1,1);
-  setOperatingMode(1,&serv1);
-  enableToque(1,&serv1);
-  */
-  set_operating_mode(&huart5, 1, 1);
-  torque_on_off(&huart5, 1, 1);
+  const uint8_t dynamixel_id = 1;
+  dynamixel_bind_uart(&huart5, 115200L);
+
+//  dynamixel_read(dynamixel_id, 13, 1); // protocol version
+//  dynamixel_read(dynamixel_id, 38, 2); // protocol version
+
+
+  dynamixel_set_operating_mode(dynamixel_id, 0);
+  DWT_Delay_us(10*1000L);
+  dynamixel_torque_on_off(dynamixel_id, 1);
+  DWT_Delay_us(10*1000L);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   uint32_t time_prev = DWT_us();
-  uint16_t angle_raw;
-  int16_t angular_velocity;
 
-//  setVelocity((int32_t)-50, &serv1);
+//  dynamixel_set_velocity(dynamixel_id, -5);
+  dynamixel_set_current(dynamixel_id, -30);
   while (1) {
-//	  if (time_prev>10L*1000L*1000L) setVelocity((int32_t)0, &serv1);
+	  dynamixel_read(dynamixel_id, 126, 2);
+
+	  if (time_prev>20L*1000L*1000L) dynamixel_torque_on_off(dynamixel_id, 0);//dynamixel_set_current(dynamixel_id, 2048);
+
 	  MX_LWIP_Process();
 	  uint32_t time = DWT_us();
 	  if (time-time_prev>100000L) {
-		  set_velocity(&huart5, 1, 0);
-		  /*
-		  readData(&serv1, 128, 8);
-		  memcpy(&angular_velocity,&commRxBuffer[9],4);
-		  memcpy(&angle_raw,&commRxBuffer[13],4);
-		  */
 
-		  char *msg[255] = {0};
+		  char msg[255] = {0};
 		  float roll = GLVG_getRoll();
-		  sprintf(msg,"%d %d %d %f\n", time, angular_velocity, angle_raw, roll);
+		  sprintf(msg,"%u %u [%u] %f\n", time, HAL_GetTick(), dynamixel_comm_err_count, roll);
 		  udp_client_send(msg);
 		  time_prev = time;
 	  }
