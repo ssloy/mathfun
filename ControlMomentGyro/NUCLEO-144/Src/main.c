@@ -146,7 +146,7 @@ int main(void)
   uint32_t time_prev = DWT_us();
 
 //  dynamixel_set_velocity(dynamixel_id, -5);
-  dynamixel_set_current(dynamixel_id, -30);
+  dynamixel_set_current(dynamixel_id, 1900);
   while (1) {
 	  dynamixel_read(dynamixel_id, 126, 2);
 
@@ -158,7 +158,7 @@ int main(void)
 
 		  char msg[255] = {0};
 		  float roll = GLVG_getRoll();
-		  sprintf(msg,"%u %u [%u] %f\n", time, HAL_GetTick(), dynamixel_comm_err_count, roll);
+		  sprintf(msg,"%lu %lu [%lu] %f\n", time, HAL_GetTick(), dynamixel_comm_err_count, roll);
 		  udp_client_send(msg);
 		  time_prev = time;
 	  }
