@@ -124,6 +124,8 @@ int main(void)
   MX_UART7_Init();
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
+  __HAL_UART_ENABLE_IT(&huart5, UART_IT_RXNE);
+
   udp_client_connect();
 //  GLVG_init(&huart5);
 
@@ -146,15 +148,19 @@ int main(void)
   uint32_t time_prev = DWT_us();
 
 //  dynamixel_set_velocity(dynamixel_id, -5);
-  dynamixel_set_current(dynamixel_id, 1900);
+  dynamixel_set_current(dynamixel_id, -3);
+  uint8_t stop = 0;
   while (1) {
-	  dynamixel_read(dynamixel_id, 126, 2);
+	  if (!stop && time_prev>10L*1000L*1000L) {
+		  stop = 1;
+		  dynamixel_torque_on_off(dynamixel_id, 0);//dynamixel_set_current(dynamixel_id, 2048);
+	  }
 
-	  if (time_prev>20L*1000L*1000L) dynamixel_torque_on_off(dynamixel_id, 0);//dynamixel_set_current(dynamixel_id, 2048);
 
 	  MX_LWIP_Process();
 	  uint32_t time = DWT_us();
 	  if (time-time_prev>100000L) {
+		  dynamixel_read(dynamixel_id, 126, 2);
 
 		  char msg[255] = {0};
 		  float roll = GLVG_getRoll();
