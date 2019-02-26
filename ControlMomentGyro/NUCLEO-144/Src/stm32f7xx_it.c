@@ -203,7 +203,7 @@ void UART5_IRQHandler(void)
   /* USER CODE BEGIN UART5_IRQn 0 */
 //  GLVG_UART_IRQ_Handler(&huart5);
 	dynamixel_uart_irq_handler(&huart5);
-  return;
+//  return;
 
   /* USER CODE END UART5_IRQn 0 */
   HAL_UART_IRQHandler(&huart5);

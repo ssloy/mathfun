@@ -1,4 +1,5 @@
-#include <dynamixel_protocol_v2.h>
+#include <stdbool.h>
+#include "dynamixel_protocol_v2.h"
 #include "dwt_stm32_delay.h"
 
 // instruction for DXL Protocol
@@ -248,23 +249,12 @@ void transmit_packet() {
   uint16_t written_packet_length = 0;
   uint16_t crc;
 
-  /*
-  if (g_is_using[port_num])
-  {
-    packetData[port_num].communication_result = COMM_PORT_BUSY;
-    return;
-  }
-  g_is_using[port_num] = True;
-  */
-
   // byte stuffing for header
   add_stuffing(tx_packet);
 
   // check max packet length
   total_packet_length = DXL_MAKEWORD(tx_packet[PKT_LENGTH_L], tx_packet[PKT_LENGTH_H]) + 7;   // 7: HEADER0 HEADER1 HEADER2 RESERVED ID LENGTH_L LENGTH_H
   if (total_packet_length > PACKET_MAX_LEN) {
-//    g_is_using[port_num] = False;
-//    packetData[port_num].communication_result = COMM_TX_ERROR;
     return;
   }
 
@@ -279,58 +269,9 @@ void transmit_packet() {
   tx_packet[total_packet_length - 2] = DXL_LOBYTE(crc);
   tx_packet[total_packet_length - 1] = DXL_HIBYTE(crc);
 
-  memset(rx_packet, 0, PACKET_MAX_LEN);
-
-  uint16_t status_packet_size = 11;
-  if (tx_packet[PKT_INSTRUCTION] == INST_WRITE) {
-	  status_packet_size = 11;
-  } else if (tx_packet[PKT_INSTRUCTION] == INST_READ) {
-	  status_packet_size = 11 + DXL_MAKEWORD(tx_packet[10], tx_packet[11]);
-  } else {
-	  // TODO implement other types of packets
-	  while (1); // TODO do a better error handling
-  }
-
-
   uint32_t tx_timeout = (1000L*9L*(uint32_t)(total_packet_length))/uart_baudrate + 1;
-  uint32_t rx_timeout = (1000L*9L*(uint32_t)(status_packet_size))/uart_baudrate + 2;
   rx_packet_idx = 0;
   HAL_StatusTypeDef txres = HAL_UART_Transmit(huart, tx_packet, total_packet_length, tx_timeout);
-  if (HAL_OK==txres) {
-	  DWT_Delay_us(rx_timeout*1000L);
-	  if (rx_packet_idx>=status_packet_size) {
-		  for (uint8_t i=0; i<5; i++) {
-			  if (rx_packet[i]==0xFF && rx_packet[i+1]==0xFF && rx_packet[i+2]==0xFD && rx_packet[i+3]==0x00 && rx_packet[i+4]<253) {
-				  for (uint8_t j=0; j<status_packet_size; j++) {
-					  rx_packet[j] = rx_packet[j+i];
-				  }
-				  uint16_t crc1 = crc16(rx_packet, status_packet_size - 2);  // -2 for the CRC itself
-				  uint16_t crc2 = DXL_MAKEWORD(rx_packet[status_packet_size-1], rx_packet[status_packet_size-1]);
-
-				  break;
-			  }
-		  }
-	  }
-  }
-
-//  HAL_StatusTypeDef rxres = HAL_UART_Receive(huart, rx_packet, , 4);
-
-/*  tx_packet[63] = txres;
-  rx_packet[63] = rxres;
-
-  /*
-  // tx packet
-  clearPort(port_num);
-  written_packet_length = writePort(port_num, packetData[port_num].tx_packet, total_packet_length);
-  if (total_packet_length != written_packet_length)
-  {
-    g_is_using[port_num] = False;
-    packetData[port_num].communication_result = COMM_TX_FAIL;
-    return;
-  }
-
-  packetData[port_num].communication_result = COMM_SUCCESS;
-  */
 }
 
 void dynamixel_write(uint8_t id, uint16_t address, uint8_t *data, uint16_t length) {
@@ -346,7 +287,9 @@ void dynamixel_write(uint8_t id, uint16_t address, uint8_t *data, uint16_t lengt
 	transmit_packet();
 }
 
-void dynamixel_read(uint8_t id, uint16_t address, uint16_t length) {
+bool dynamixel_read_current_velocity_position(uint8_t id, int16_t *current, int32_t *velocity, uint32_t *position) {
+	uint16_t address = 126;
+	uint16_t length = 10;
 	tx_packet[PKT_ID] = id;
 	tx_packet[PKT_LENGTH_L] = 7;
 	tx_packet[PKT_LENGTH_H] = 0;
@@ -355,7 +298,39 @@ void dynamixel_read(uint8_t id, uint16_t address, uint16_t length) {
 	tx_packet[PKT_PARAMETER0 + 1] = DXL_HIBYTE(address);
 	tx_packet[PKT_PARAMETER0 + 2] = DXL_LOBYTE(length);
 	tx_packet[PKT_PARAMETER0 + 3] = DXL_HIBYTE(length);
+
+	memset(rx_packet, 0, PACKET_MAX_LEN);
+	uint16_t status_packet_size = 11 + DXL_MAKEWORD(tx_packet[10], tx_packet[11]); // TODO length?
+	  uint32_t rx_timeout = (1000L*9L*(uint32_t)(status_packet_size))/uart_baudrate + 3;
+
 	transmit_packet();
+	HAL_StatusTypeDef rxres = HAL_UART_Receive(huart, rx_packet, status_packet_size+1, rx_timeout);
+
+//	  if (HAL_OK==txres) {
+//		  DWT_Delay_us(rx_timeout*1000L);
+//	  }
+
+//	if (rx_packet_idx>=status_packet_size) {
+		for (uint8_t i=0; i<5; i++) {
+			if (rx_packet[i]==0xFF && rx_packet[i+1]==0xFF && rx_packet[i+2]==0xFD && rx_packet[i+3]==0x00 && rx_packet[i+4]<253) {
+				for (uint8_t j=0; j<status_packet_size; j++) {
+					rx_packet[j] = rx_packet[j+i];
+				}
+				uint16_t crc1 = crc16(rx_packet, status_packet_size - 2);  // -2 for the CRC itself
+				uint16_t crc2 = DXL_MAKEWORD(rx_packet[status_packet_size-2], rx_packet[status_packet_size-1]);
+				if (crc1==crc2) {
+					remove_stuffing(rx_packet);
+					*current  = *(int16_t  *)&(rx_packet[9]);
+					*velocity = *(int32_t  *)&(rx_packet[11]);
+					*position = *(uint32_t *)&(rx_packet[15]);
+					return true;
+				}
+				return false;
+			}
+		}
+//	}
+
+	return false;
 }
 
 void dynamixel_set_operating_mode(uint8_t id, uint8_t mode) {
@@ -375,70 +350,14 @@ void dynamixel_set_current(uint8_t id, int16_t current) {
 }
 
 void dynamixel_uart_irq_handler(UART_HandleTypeDef * _huart) {
+	/*
     if (huart->Instance != _huart->Instance) return;
   	if ((__HAL_UART_GET_FLAG(huart, UART_FLAG_RXNE) != RESET)  && (__HAL_UART_GET_IT_SOURCE(huart, UART_IT_RXNE) != RESET)) {
 		if (rx_packet_idx == PACKET_MAX_LEN) {
 			rx_packet_idx = 0;
 		}
-
 		rx_packet[rx_packet_idx++] =  huart->Instance->RDR;
-		/*
-		uint8_t i = rx_packet_idx-1;
-		uint8_t head[5];
-		for (uint8_t j=0; j<5; j++) {
-			head[j] = rx_packet[i];
-			i = (i==0 ? PACKET_MAX_LEN-1 : i - 1);
-		}
-		if (head[4]==0xFF && head[3]==0xFF && head[2]==0xFD && head[1]==0x00 && head[0]<253) {
-			rx_packet_start_idx = ((rx_packet_idx + PACKET_MAX_LEN - 5 < PACKET_MAX_LEN) ? rx_packet_idx + PACKET_MAX_LEN - 5 : rx_packet_idx - 5);
-		}
-
-			/*
-
-
-//			megacounter1++;
-
-			if(rxBufferIdx > 3 && rxBuffer[rxBufferIdx - 4] == 0xAA && rxBuffer[rxBufferIdx - 3] == 0xAA){
-//				megacounter2++;
-				rxBuffer[0] = rxBuffer[rxBufferIdx - 4];
-				rxBuffer[1] = rxBuffer[rxBufferIdx - 3];
-				packetLength = rxBuffer[2] = rxBuffer[rxBufferIdx - 2];
-				packetType = rxBuffer[3] = rxBuffer[rxBufferIdx - 1];
-				rxBufferIdx = 4;
-				packetStarted = true;
-
-			}
-
-			if(packetStarted && rxBufferIdx == packetLength + 3){
-				rxBufferIdx = 0;
-				packetStarted = 0;
-
-				size = packetLength + 3;
-				type = packetType;
-				memcpy(&GLVG_frame, &rxBuffer, size);
-				GLVG_parsePacket();
-			}
-
-		}
-
-		if((__HAL_UART_GET_FLAG(huart, UART_FLAG_TXE) != RESET)
-						&& (__HAL_UART_GET_IT_SOURCE(huart, UART_IT_TXE) != RESET)){
-
-			if(txBufferIdx < commandSize){
-				huart->Instance->TDR = txBuffer[txBufferIdx++];
-			} else{
-				txBufferIdx = 0;
-
-				while(__HAL_UART_GET_FLAG(huart, UART_FLAG_TC) == RESET);
-				__HAL_UART_DISABLE_IT(huart, UART_IT_TXE);
-				__HAL_UART_ENABLE_IT(huart, UART_IT_RXNE);
-
-				memset(&txBuffer,0,TX_BUFFER_SIZE);
-				commandSent = true;
-				commandSentTime = HAL_GetTick();
-
-			}
-		*/
     }
 	__HAL_UART_FLUSH_DRREGISTER(huart);
+	*/
 }

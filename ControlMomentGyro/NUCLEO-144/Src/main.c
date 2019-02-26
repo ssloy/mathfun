@@ -53,6 +53,8 @@
 
 /* USER CODE BEGIN Includes */
 
+#include <stdbool.h>
+
 #include "dwt_stm32_delay.h"
 #include "udp_client.h"
 #include "gl_svg.h"
@@ -124,7 +126,7 @@ int main(void)
   MX_UART7_Init();
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
-  __HAL_UART_ENABLE_IT(&huart5, UART_IT_RXNE);
+//  __HAL_UART_ENABLE_IT(&huart5, UART_IT_RXNE);
 
   udp_client_connect();
 //  GLVG_init(&huart5);
@@ -136,7 +138,7 @@ int main(void)
 //  dynamixel_read(dynamixel_id, 38, 2); // protocol version
 
 
-  dynamixel_set_operating_mode(dynamixel_id, 0);
+  dynamixel_set_operating_mode(dynamixel_id, 1);
   DWT_Delay_us(10*1000L);
   dynamixel_torque_on_off(dynamixel_id, 1);
   DWT_Delay_us(10*1000L);
@@ -147,24 +149,29 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   uint32_t time_prev = DWT_us();
 
-//  dynamixel_set_velocity(dynamixel_id, -5);
-  dynamixel_set_current(dynamixel_id, -3);
+  dynamixel_set_velocity(dynamixel_id, -15);
+//  dynamixel_set_current(dynamixel_id, 150);
   uint8_t stop = 0;
+  int16_t current = 0;
+  int32_t velocity = 0;
+  uint32_t position = 0;
   while (1) {
 	  if (!stop && time_prev>10L*1000L*1000L) {
 		  stop = 1;
-		  dynamixel_torque_on_off(dynamixel_id, 0);//dynamixel_set_current(dynamixel_id, 2048);
+		   dynamixel_torque_on_off(dynamixel_id, 0);
+//		  dynamixel_set_current(dynamixel_id, 1);
 	  }
 
 
 	  MX_LWIP_Process();
 	  uint32_t time = DWT_us();
 	  if (time-time_prev>100000L) {
-		  dynamixel_read(dynamixel_id, 126, 2);
+		  bool res = dynamixel_read_current_velocity_position(1, &current, &velocity, &position);
+		  if (!res) dynamixel_comm_err_count++;
 
 		  char msg[255] = {0};
 		  float roll = GLVG_getRoll();
-		  sprintf(msg,"%lu %lu [%lu] %f\n", time, HAL_GetTick(), dynamixel_comm_err_count, roll);
+		  sprintf(msg,"%lu [%lu]: %d %ld %lu %f\n", time, dynamixel_comm_err_count, current, velocity, position, roll);
 		  udp_client_send(msg);
 		  time_prev = time;
 	  }
