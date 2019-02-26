@@ -103,8 +103,7 @@ int main(void)
 
   /* MCU Configuration----------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */  HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -138,7 +137,8 @@ int main(void)
 //  dynamixel_read(dynamixel_id, 38, 2); // protocol version
 
 
-  dynamixel_set_operating_mode(dynamixel_id, 1);
+//  dynamixel_set_operating_mode(dynamixel_id, 1);
+  dynamixel_set_operating_mode(dynamixel_id, 0);
   DWT_Delay_us(10*1000L);
   dynamixel_torque_on_off(dynamixel_id, 1);
   DWT_Delay_us(10*1000L);
@@ -147,16 +147,18 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  uint32_t time_prev = DWT_us();
 
-  dynamixel_set_velocity(dynamixel_id, -15);
-//  dynamixel_set_current(dynamixel_id, 150);
+  HAL_Delay(5000);
+//  dynamixel_set_velocity(dynamixel_id, 100);
+  dynamixel_set_current(dynamixel_id, 150);
   uint8_t stop = 0;
   int16_t current = 0;
   int32_t velocity = 0;
-  uint32_t position = 0;
+  int32_t position = 0;
+  uint32_t time_start = DWT_us();
+  uint32_t time_prev = DWT_us();
   while (1) {
-	  if (!stop && time_prev>10L*1000L*1000L) {
+	  if (!stop && time_prev-time_start>10L*1000L*1000L) {
 		  stop = 1;
 		   dynamixel_torque_on_off(dynamixel_id, 0);
 //		  dynamixel_set_current(dynamixel_id, 1);
@@ -165,13 +167,13 @@ int main(void)
 
 	  MX_LWIP_Process();
 	  uint32_t time = DWT_us();
-	  if (time-time_prev>100000L) {
+	  if (time-time_prev>10000L) {
 		  bool res = dynamixel_read_current_velocity_position(1, &current, &velocity, &position);
 		  if (!res) dynamixel_comm_err_count++;
 
 		  char msg[255] = {0};
 		  float roll = GLVG_getRoll();
-		  sprintf(msg,"%lu [%lu]: %d %ld %lu %f\n", time, dynamixel_comm_err_count, current, velocity, position, roll);
+		  sprintf(msg,"%lu [%lu]: %d %ld %ld %f", time-time_start, dynamixel_comm_err_count, current, velocity, position, roll);
 		  udp_client_send(msg);
 		  time_prev = time;
 	  }
@@ -263,7 +265,7 @@ static void MX_UART5_Init(void)
 {
 
   huart5.Instance = UART5;
-  huart5.Init.BaudRate = 115200;
+  huart5.Init.BaudRate = 1000000;
   huart5.Init.WordLength = UART_WORDLENGTH_8B;
   huart5.Init.StopBits = UART_STOPBITS_1;
   huart5.Init.Parity = UART_PARITY_NONE;

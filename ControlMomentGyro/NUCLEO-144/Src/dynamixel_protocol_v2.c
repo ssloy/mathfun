@@ -287,7 +287,7 @@ void dynamixel_write(uint8_t id, uint16_t address, uint8_t *data, uint16_t lengt
 	transmit_packet();
 }
 
-bool dynamixel_read_current_velocity_position(uint8_t id, int16_t *current, int32_t *velocity, uint32_t *position) {
+bool dynamixel_read_current_velocity_position(uint8_t id, int16_t *current, int32_t *velocity, int32_t *position) {
 	uint16_t address = 126;
 	uint16_t length = 10;
 	tx_packet[PKT_ID] = id;
@@ -301,7 +301,7 @@ bool dynamixel_read_current_velocity_position(uint8_t id, int16_t *current, int3
 
 	memset(rx_packet, 0, PACKET_MAX_LEN);
 	uint16_t status_packet_size = 11 + DXL_MAKEWORD(tx_packet[10], tx_packet[11]); // TODO length?
-	  uint32_t rx_timeout = (1000L*9L*(uint32_t)(status_packet_size))/uart_baudrate + 3;
+	  uint32_t rx_timeout = (1000L*9L*(uint32_t)(status_packet_size))/uart_baudrate + 2; // TODO I dislike the +2, it is ugly
 
 	transmit_packet();
 	HAL_StatusTypeDef rxres = HAL_UART_Receive(huart, rx_packet, status_packet_size+1, rx_timeout);
@@ -349,8 +349,8 @@ void dynamixel_set_current(uint8_t id, int16_t current) {
 	dynamixel_write(id, 102, (uint8_t *)&current, 2);
 }
 
+/*
 void dynamixel_uart_irq_handler(UART_HandleTypeDef * _huart) {
-	/*
     if (huart->Instance != _huart->Instance) return;
   	if ((__HAL_UART_GET_FLAG(huart, UART_FLAG_RXNE) != RESET)  && (__HAL_UART_GET_IT_SOURCE(huart, UART_IT_RXNE) != RESET)) {
 		if (rx_packet_idx == PACKET_MAX_LEN) {
@@ -359,5 +359,5 @@ void dynamixel_uart_irq_handler(UART_HandleTypeDef * _huart) {
 		rx_packet[rx_packet_idx++] =  huart->Instance->RDR;
     }
 	__HAL_UART_FLUSH_DRREGISTER(huart);
-	*/
 }
+	*/
