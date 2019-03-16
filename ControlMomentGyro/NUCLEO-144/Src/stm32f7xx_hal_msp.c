@@ -141,16 +141,23 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     __HAL_RCC_UART7_CLK_ENABLE();
   
     /**UART7 GPIO Configuration    
-    PF6     ------> UART7_RX
     PF7     ------> UART7_TX
-    PF8     ------> UART7_DE 
+    PF8     ------> UART7_DE
+    PE7     ------> UART7_RX 
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8;
+    GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_8;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF8_UART7;
     HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_7;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF8_UART7;
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
     /* UART7 interrupt Init */
     HAL_NVIC_SetPriority(UART7_IRQn, 0, 0);
@@ -197,11 +204,13 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
     __HAL_RCC_UART7_CLK_DISABLE();
   
     /**UART7 GPIO Configuration    
-    PF6     ------> UART7_RX
     PF7     ------> UART7_TX
-    PF8     ------> UART7_DE 
+    PF8     ------> UART7_DE
+    PE7     ------> UART7_RX 
     */
-    HAL_GPIO_DeInit(GPIOF, GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8);
+    HAL_GPIO_DeInit(GPIOF, GPIO_PIN_7|GPIO_PIN_8);
+
+    HAL_GPIO_DeInit(GPIOE, GPIO_PIN_7);
 
     /* UART7 interrupt DeInit */
     HAL_NVIC_DisableIRQ(UART7_IRQn);

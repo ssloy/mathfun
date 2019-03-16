@@ -54,6 +54,7 @@
 /* USER CODE BEGIN Includes */
 
 #include <stdbool.h>
+#include <math.h>
 
 #include "dwt_stm32_delay.h"
 #include "udp_client.h"
@@ -103,7 +104,8 @@ int main(void)
 
   /* MCU Configuration----------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */  HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -128,20 +130,17 @@ int main(void)
 //  __HAL_UART_ENABLE_IT(&huart5, UART_IT_RXNE);
 
   udp_client_connect();
-//  GLVG_init(&huart5);
+  GLVG_init(&huart7);
 
   const uint8_t dynamixel_id = 1;
-  dynamixel_bind_uart(&huart5, 115200L);
+  dynamixel_bind_uart(&huart5, 1000000L);
 
-//  dynamixel_read(dynamixel_id, 13, 1); // protocol version
-//  dynamixel_read(dynamixel_id, 38, 2); // protocol version
-
-
-//  dynamixel_set_operating_mode(dynamixel_id, 1);
+  dynamixel_torque_on_off(dynamixel_id, 0);
+  HAL_Delay(50);
   dynamixel_set_operating_mode(dynamixel_id, 0);
-  DWT_Delay_us(10*1000L);
+  HAL_Delay(50);
   dynamixel_torque_on_off(dynamixel_id, 1);
-  DWT_Delay_us(10*1000L);
+  HAL_Delay(50);
 
   /* USER CODE END 2 */
 
@@ -149,39 +148,73 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 
   HAL_Delay(5000);
-//  dynamixel_set_velocity(dynamixel_id, 100);
-  dynamixel_set_current(dynamixel_id, 150);
-  uint8_t stop = 0;
-  int16_t current = 0;
-  int32_t velocity = 0;
-  int32_t position = 0;
+
+  float current = 0, velocity = 0, position = M_PI/2., start_position = 0;
+  int16_t pwm = 0;
+  while (!dynamixel_read_current_velocity_position(1, &pwm, &current, &velocity, &start_position));
+
+
   uint32_t time_start = DWT_us();
   uint32_t time_prev = DWT_us();
-  while (1) {
-	  if (!stop && time_prev-time_start>10L*1000L*1000L) {
-		  stop = 1;
-		   dynamixel_torque_on_off(dynamixel_id, 0);
-//		  dynamixel_set_current(dynamixel_id, 1);
-	  }
 
+  float goal_current = 0.f;
+  uint8_t read_send = 0;
+
+  uint8_t state = 0;
+  uint8_t need_to_rewind = 1;
+
+  while (1) {
+	  if (time_prev-time_start>5L*1000L*1000L) {
+		   state = 9;
+	  }
 
 	  MX_LWIP_Process();
 	  uint32_t time = DWT_us();
-	  if (time-time_prev>10000L) {
-		  bool res = dynamixel_read_current_velocity_position(1, &current, &velocity, &position);
-		  if (!res) dynamixel_comm_err_count++;
-
-		  char msg[255] = {0};
-		  float roll = GLVG_getRoll();
-		  sprintf(msg,"%lu [%lu]: %d %ld %ld %f", time-time_start, dynamixel_comm_err_count, current, velocity, position, roll);
-		  udp_client_send(msg);
+	  if (time-time_prev>5000L) {
 		  time_prev = time;
+		  read_send = 1-read_send;
+
+		  if (read_send) {
+			  if (0==state) {
+				  dynamixel_set_current(dynamixel_id, goal_current);
+				  goal_current -= 0.0005;
+			  } else if (9==state) {
+				  if (need_to_rewind) {
+					  dynamixel_torque_on_off(dynamixel_id, 0);
+					  HAL_Delay(50);
+					  dynamixel_set_operating_mode(dynamixel_id, 3);
+					  HAL_Delay(50);
+					  dynamixel_set_profile_velocity(dynamixel_id, 32);
+					  HAL_Delay(50);
+					  dynamixel_torque_on_off(dynamixel_id, 1);
+					  HAL_Delay(50);
+					  dynamixel_set_position(dynamixel_id, start_position);
+					  HAL_Delay(8000);
+					  need_to_rewind = 0;
+				  }
+				  dynamixel_torque_on_off(dynamixel_id, 0);
+			  }
+		  }
+		  if (!read_send) {
+			  if (0==state && fabs(position-M_PI/2.)>3.14/4.) state = 9;
+
+			  bool res = dynamixel_read_current_velocity_position(1, &pwm, &current, &velocity, &position);
+			  if (!res) {
+				  dynamixel_comm_err_count++;
+			  } else {
+				  position =  M_PI/2. - (position-start_position);
+			  }
+
+			  char msg[255] = {0};
+			  float roll = (90 - GLVG_getRoll())*M_PI/180.;
+			  sprintf(msg,"%3.6f, %3.6f, %3.6f, %3.6f, %d, %lu", (float)(time-time_start)*1e-6, current, roll, position, state, dynamixel_comm_err_count);
+			  udp_client_send(msg);
+		  }
 	  }
+  }
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-
-  }
   /* USER CODE END 3 */
 
 }
@@ -323,6 +356,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
 

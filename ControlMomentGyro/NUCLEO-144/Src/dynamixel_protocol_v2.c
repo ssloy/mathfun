@@ -45,7 +45,7 @@ volatile uint8_t rx_packet_start_idx = 255;
 volatile uint32_t rx_timeout = 0;
 
 volatile static UART_HandleTypeDef* huart = NULL;
-volatile static uint32_t uart_baudrate = 115200;
+volatile static uint32_t uart_baudrate = 1000000L;
 volatile uint32_t dynamixel_comm_err_count = 0;
 
 void dynamixel_bind_uart(const UART_HandleTypeDef* _huart, uint32_t baudrate) {
@@ -287,9 +287,11 @@ void dynamixel_write(uint8_t id, uint16_t address, uint8_t *data, uint16_t lengt
 	transmit_packet();
 }
 
-bool dynamixel_read_current_velocity_position(uint8_t id, int16_t *current, int32_t *velocity, int32_t *position) {
-	uint16_t address = 126;
-	uint16_t length = 10;
+bool dynamixel_read_current_velocity_position(uint8_t id, int16_t *pwm, float *fcurrent, float *fvelocity, float *fposition) {
+	int16_t current;
+	int32_t velocity, position;
+	uint16_t address = 124;
+	uint16_t length = 12;
 	tx_packet[PKT_ID] = id;
 	tx_packet[PKT_LENGTH_L] = 7;
 	tx_packet[PKT_LENGTH_H] = 0;
@@ -301,14 +303,15 @@ bool dynamixel_read_current_velocity_position(uint8_t id, int16_t *current, int3
 
 	memset(rx_packet, 0, PACKET_MAX_LEN);
 	uint16_t status_packet_size = 11 + DXL_MAKEWORD(tx_packet[10], tx_packet[11]); // TODO length?
-	  uint32_t rx_timeout = (1000L*9L*(uint32_t)(status_packet_size))/uart_baudrate + 2; // TODO I dislike the +2, it is ugly
+	uint32_t rx_timeout = (1000L*9L*(uint32_t)(status_packet_size))/uart_baudrate + 4; // TODO I dislike the +5, it is ugly
 
+//	__HAL_UART_DISABLE_IT(huart, UART_IT_RXNE);
 	transmit_packet();
 	HAL_StatusTypeDef rxres = HAL_UART_Receive(huart, rx_packet, status_packet_size+1, rx_timeout);
 
-//	  if (HAL_OK==txres) {
-//		  DWT_Delay_us(rx_timeout*1000L);
-//	  }
+	  if (HAL_OK!=rxres) {
+		  DWT_Delay_us(rx_timeout*1000L);
+	  }
 
 //	if (rx_packet_idx>=status_packet_size) {
 		for (uint8_t i=0; i<5; i++) {
@@ -320,9 +323,18 @@ bool dynamixel_read_current_velocity_position(uint8_t id, int16_t *current, int3
 				uint16_t crc2 = DXL_MAKEWORD(rx_packet[status_packet_size-2], rx_packet[status_packet_size-1]);
 				if (crc1==crc2) {
 					remove_stuffing(rx_packet);
-					*current  = *(int16_t  *)&(rx_packet[9]);
-					*velocity = *(int32_t  *)&(rx_packet[11]);
-					*position = *(uint32_t *)&(rx_packet[15]);
+					*pwm  = *(int16_t  *)&(rx_packet[9]);
+					current  = *(int16_t  *)&(rx_packet[11]);
+					velocity = *(int32_t  *)&(rx_packet[13]);
+					position = *(uint32_t *)&(rx_packet[17]);
+					/*
+					current  = *(int16_t  *)&(rx_packet[9]);
+					velocity = *(int32_t  *)&(rx_packet[11]);
+					position = *(uint32_t *)&(rx_packet[15]);
+					*/
+					*fcurrent = current * 0.00336;
+					*fvelocity = velocity * (0.229*6.28319/60.);
+					*fposition = (position*6.28319)/4096.;
 					return true;
 				}
 				return false;
@@ -345,8 +357,18 @@ void dynamixel_set_velocity(uint8_t id, int32_t velocity) {
 	dynamixel_write(id, 104, (uint8_t *)&velocity, 4);
 }
 
-void dynamixel_set_current(uint8_t id, int16_t current) {
-	dynamixel_write(id, 102, (uint8_t *)&current, 2);
+void dynamixel_set_profile_velocity(uint8_t id, int32_t velocity) {
+	dynamixel_write(id, 112, (uint8_t *)&velocity, 4);
+}
+
+void dynamixel_set_position(uint8_t id, float fposition) {
+	int32_t position = fposition*4096/6.28319;
+	dynamixel_write(id, 116, (uint8_t *)&position, 4);
+}
+
+void dynamixel_set_current(uint8_t id, float current) {
+	int16_t icurrent = current/0.00336;
+	dynamixel_write(id, 102, (uint8_t *)&icurrent, 2);
 }
 
 /*
