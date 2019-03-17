@@ -38,7 +38,8 @@
 /* USER CODE BEGIN 0 */
 
 extern void GLVG_UART_IRQ_Handler(UART_HandleTypeDef * huart);
-//extern void dynamixel_uart_irq_handler(UART_HandleTypeDef * huart);
+extern volatile uint8_t system_task;
+
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -194,6 +195,23 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32f7xx.s).                    */
 /******************************************************************************/
+
+/**
+* @brief This function handles EXTI line[15:10] interrupts.
+*/
+void EXTI15_10_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI15_10_IRQn 0 */
+	if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13)) {
+		system_task = 0;
+	}
+
+  /* USER CODE END EXTI15_10_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_13);
+  /* USER CODE BEGIN EXTI15_10_IRQn 1 */
+
+  /* USER CODE END EXTI15_10_IRQn 1 */
+}
 
 /**
 * @brief This function handles UART5 global interrupt.

@@ -71,6 +71,7 @@ UART_HandleTypeDef huart7;
 /* USER CODE BEGIN PV */
 
 extern uint32_t dynamixel_comm_err_count;
+volatile uint8_t system_task = 0;
 
 /* Private variables ---------------------------------------------------------*/
 
@@ -160,13 +161,11 @@ int main(void)
 
   float goal_current = 0.f;
   uint8_t read_send = 0;
-
-  uint8_t state = 0;
   uint8_t need_to_rewind = 1;
 
   while (1) {
-	  if (time_prev-time_start>5L*1000L*1000L) {
-		   state = 9;
+	  if (time_prev-time_start>60L*1000L*1000L) {
+//		   system_task = 9;
 	  }
 
 	  MX_LWIP_Process();
@@ -175,26 +174,40 @@ int main(void)
 		  time_prev = time;
 		  read_send = 1-read_send;
 
-		  if (read_send) {
-			  if (0==state) {
-				  dynamixel_set_current(dynamixel_id, goal_current);
-				  goal_current -= 0.0005;
-			  } else if (9==state) {
-				  if (need_to_rewind) {
-					  dynamixel_torque_on_off(dynamixel_id, 0);
-					  HAL_Delay(50);
-					  dynamixel_set_operating_mode(dynamixel_id, 3);
-					  HAL_Delay(50);
-					  dynamixel_set_profile_velocity(dynamixel_id, 32);
-					  HAL_Delay(50);
-					  dynamixel_torque_on_off(dynamixel_id, 1);
-					  HAL_Delay(50);
-					  dynamixel_set_position(dynamixel_id, start_position);
-					  HAL_Delay(8000);
-					  need_to_rewind = 0;
-				  }
+		  if (0==system_task) {
+			  need_to_rewind = 1;
+
+			  HAL_Delay(50);
+			  dynamixel_torque_on_off(dynamixel_id, 0);
+			  HAL_Delay(50);
+			  dynamixel_set_operating_mode(dynamixel_id, 0);
+			  HAL_Delay(50);
+			  dynamixel_torque_on_off(dynamixel_id, 1);
+			  HAL_Delay(50);
+
+			  system_task = 1;
+			  time_start = DWT_us();
+		  }
+
+		  if (read_send && 9==system_task) {
+			  if (need_to_rewind) {
 				  dynamixel_torque_on_off(dynamixel_id, 0);
+				  HAL_Delay(50);
+				  dynamixel_set_operating_mode(dynamixel_id, 3);
+				  HAL_Delay(50);
+				  dynamixel_set_profile_velocity(dynamixel_id, 32);
+				  HAL_Delay(50);
+				  dynamixel_torque_on_off(dynamixel_id, 1);
+				  HAL_Delay(50);
+				  dynamixel_set_position(dynamixel_id, start_position);
+				  HAL_Delay(5000);
+				  need_to_rewind = 0;
 			  }
+			  dynamixel_torque_on_off(dynamixel_id, 0);
+		  }
+
+		  if (read_send && 1==system_task) {
+			  dynamixel_set_current(dynamixel_id, goal_current);
 		  }
 		  if (!read_send) {
 
@@ -208,10 +221,19 @@ int main(void)
 			  float qc = M_PI/2. - (position-start_position);
 			  float wc = -velocity;
 
-			  if (0==state && fabs(qc-M_PI/2.)>3.14/4.) state = 9;
+			  if (1==system_task && fabs(qc-M_PI/2.)>3.14/4.) system_task = 9;
+
+			  float K[] = {4.800283, 0.502054, -0.316228, 0.123239};
+			  float k = 1.62;
+
+		      float torque = (K[0]*(qb + .725 /* M_PI/4. */) + K[1]*wb + K[2]*(qc - M_PI/2.) + K[3]*wc);
+		      goal_current = torque / k;
+		      if (goal_current >  3) goal_current =  3;
+		      if (goal_current < -3) goal_current = -3;
+		      if (fabs(qb+M_PI/4.)>.2) goal_current = 0;
 
 			  char msg[255] = {0};
-			  sprintf(msg,"%3.6f, %3.6f, %3.6f, %3.6f, %3.6f, %3.6f,                %d, %lu", (float)(time-time_start)*1e-6, current, qb, wb, qc, wc, state, dynamixel_comm_err_count);
+			  sprintf(msg,"%3.6f, %3.6f, %3.6f, %3.6f, %3.6f, %3.6f,                %d, %lu", (float)(time-time_start)*1e-6, current, qb, wb, qc, wc, system_task, dynamixel_comm_err_count);
 			  udp_client_send(msg);
 		  }
 	  }
@@ -395,6 +417,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(USB_OverCurrent_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 }
 
