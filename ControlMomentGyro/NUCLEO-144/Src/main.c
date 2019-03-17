@@ -149,9 +149,10 @@ int main(void)
 
   HAL_Delay(5000);
 
-  float current = 0, velocity = 0, position = M_PI/2., start_position = 0;
+  float current = 0, velocity = 0, position = 0, start_position = 0;
   int16_t pwm = 0;
   while (!dynamixel_read_current_velocity_position(1, &pwm, &current, &velocity, &start_position));
+  position = start_position;
 
 
   uint32_t time_start = DWT_us();
@@ -196,18 +197,21 @@ int main(void)
 			  }
 		  }
 		  if (!read_send) {
-			  if (0==state && fabs(position-M_PI/2.)>3.14/4.) state = 9;
 
 			  bool res = dynamixel_read_current_velocity_position(1, &pwm, &current, &velocity, &position);
 			  if (!res) {
 				  dynamixel_comm_err_count++;
-			  } else {
-				  position =  M_PI/2. - (position-start_position);
 			  }
 
+			  float qb = (90 - GLVG_getRoll())*M_PI/180.;
+			  float wb = -GLVG_getGx()*M_PI/180.;
+			  float qc = M_PI/2. - (position-start_position);
+			  float wc = -velocity;
+
+			  if (0==state && fabs(qc-M_PI/2.)>3.14/4.) state = 9;
+
 			  char msg[255] = {0};
-			  float roll = (90 - GLVG_getRoll())*M_PI/180.;
-			  sprintf(msg,"%3.6f, %3.6f, %3.6f, %3.6f, %d, %lu", (float)(time-time_start)*1e-6, current, roll, position, state, dynamixel_comm_err_count);
+			  sprintf(msg,"%3.6f, %3.6f, %3.6f, %3.6f, %3.6f, %3.6f,                %d, %lu", (float)(time-time_start)*1e-6, current, qb, wb, qc, wc, state, dynamixel_comm_err_count);
 			  udp_client_send(msg);
 		  }
 	  }
