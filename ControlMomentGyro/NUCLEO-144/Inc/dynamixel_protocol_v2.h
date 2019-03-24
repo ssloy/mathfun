@@ -7,7 +7,7 @@
 void dynamixel_bind_uart(const UART_HandleTypeDef* _huart, uint32_t baudrate);
 void dynamixel_torque_on_off(uint8_t id, uint8_t isenabled);
 void dynamixel_set_position(uint8_t id, float  position);
-void dynamixel_set_velocity(uint8_t id, int32_t velocity);
+void dynamixel_set_velocity(uint8_t id, float velocity);
 void dynamixel_set_profile_velocity(uint8_t id, int32_t velocity);
 void dynamixel_set_current(uint8_t id, float current);
 void dynamixel_set_operating_mode(uint8_t id, uint8_t mode);

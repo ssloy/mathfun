@@ -353,7 +353,8 @@ void dynamixel_torque_on_off(uint8_t id, uint8_t isenabled) {
 	dynamixel_write(id, 64, &isenabled, 1);
 }
 
-void dynamixel_set_velocity(uint8_t id, int32_t velocity) {
+void dynamixel_set_velocity(uint8_t id, float fvelocity) {
+	int32_t velocity = (fvelocity*60.)/(0.229*6.28319);
 	dynamixel_write(id, 104, (uint8_t *)&velocity, 4);
 }
 

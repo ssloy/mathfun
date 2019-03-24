@@ -65,6 +65,10 @@
 
 /* Private variables ---------------------------------------------------------*/
 
+#define TORQUE_CONTROL 0
+
+TIM_HandleTypeDef htim13;
+
 UART_HandleTypeDef huart5;
 UART_HandleTypeDef huart7;
 
@@ -82,6 +86,10 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_UART7_Init(void);
 static void MX_UART5_Init(void);
+static void MX_TIM13_Init(void);
+                                    
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+                                
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -89,6 +97,15 @@ static void MX_UART5_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+void user_pwm_setvalue(uint16_t value) {
+  TIM_OC_InitTypeDef sConfigOC;
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = value;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  HAL_TIM_PWM_ConfigChannel(&htim13, &sConfigOC, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim13, TIM_CHANNEL_1);
+}
 
 /* USER CODE END 0 */
 
@@ -127,8 +144,12 @@ int main(void)
   MX_LWIP_Init();
   MX_UART7_Init();
   MX_UART5_Init();
+  MX_TIM13_Init();
   /* USER CODE BEGIN 2 */
-//  __HAL_UART_ENABLE_IT(&huart5, UART_IT_RXNE);
+
+  HAL_TIM_PWM_Start(&htim13, TIM_CHANNEL_1);
+  uint16_t pwm_value = 0;
+  user_pwm_setvalue(pwm_value);
 
   udp_client_connect();
   GLVG_init(&huart7);
@@ -136,37 +157,34 @@ int main(void)
   const uint8_t dynamixel_id = 1;
   dynamixel_bind_uart(&huart5, 1000000L);
 
-  dynamixel_torque_on_off(dynamixel_id, 0);
-  HAL_Delay(50);
-  dynamixel_set_operating_mode(dynamixel_id, 0);
-  HAL_Delay(50);
-  dynamixel_torque_on_off(dynamixel_id, 1);
-  HAL_Delay(50);
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  HAL_Delay(5000);
 
   float current = 0, velocity = 0, position = 0, start_position = 0;
+  float angle_filtered = 0;
   int16_t pwm = 0;
-  while (!dynamixel_read_current_velocity_position(1, &pwm, &current, &velocity, &start_position));
-  position = start_position;
-
 
   uint32_t time_start = DWT_us();
   uint32_t time_prev = DWT_us();
 
+#if TORQUE_CONTROL
   float goal_current = 0.f;
+#else
+  float goal_velocity = 0.f;
+#endif
   uint8_t read_send = 0;
   uint8_t need_to_rewind = 1;
 
   while (1) {
-	  if (time_prev-time_start>60L*1000L*1000L) {
-//		   system_task = 9;
+
+	  /*
+	  if (time_prev-time_start>1L*1000L*1000L) {
+		   system_task = 9;
 	  }
+	  */
 
 	  MX_LWIP_Process();
 	  uint32_t time = DWT_us();
@@ -175,18 +193,36 @@ int main(void)
 		  read_send = 1-read_send;
 
 		  if (0==system_task) {
+			  angle_filtered = -.73;
+
+			  pwm_value = 0;
+			  __HAL_TIM_SET_COMPARE(&htim13, TIM_CHANNEL_1, pwm_value);
 			  need_to_rewind = 1;
 
 			  HAL_Delay(50);
 			  dynamixel_torque_on_off(dynamixel_id, 0);
 			  HAL_Delay(50);
+#if TORQUE_CONTROL
 			  dynamixel_set_operating_mode(dynamixel_id, 0);
+#else
+			  dynamixel_set_operating_mode(dynamixel_id, 1);
+#endif
 			  HAL_Delay(50);
 			  dynamixel_torque_on_off(dynamixel_id, 1);
 			  HAL_Delay(50);
 
+			  while (!dynamixel_read_current_velocity_position(1, &pwm, &current, &velocity, &start_position));
+			  position = start_position;
+
 			  system_task = 1;
+			  HAL_Delay(5000);
+
+			  for (pwm_value=0; pwm_value<110; pwm_value++) {
+				  __HAL_TIM_SET_COMPARE(&htim13, TIM_CHANNEL_1, pwm_value);
+				  HAL_Delay(10);
+			  }
 			  time_start = DWT_us();
+			  continue;
 		  }
 
 		  if (read_send && 9==system_task) {
@@ -207,13 +243,20 @@ int main(void)
 		  }
 
 		  if (read_send && 1==system_task) {
-			  dynamixel_set_current(dynamixel_id, goal_current);
+#if TORQUE_CONTROL
+			  dynamixel_set_current(dynamixel_id, -goal_current); // note that the dynamixel basis is inversed w.r.t the paper
+#else
+			  dynamixel_set_velocity(dynamixel_id, -goal_velocity); // note that the dynamixel basis is inversed w.r.t the paper
+#endif
 		  }
 		  if (!read_send) {
 
 			  bool res = dynamixel_read_current_velocity_position(1, &pwm, &current, &velocity, &position);
 			  if (!res) {
 				  dynamixel_comm_err_count++;
+			  } else {
+				  current = -current; // inversed basis
+				  velocity = -velocity;
 			  }
 
 			  float qb = (90 - GLVG_getRoll())*M_PI/180.;
@@ -221,19 +264,42 @@ int main(void)
 			  float qc = M_PI/2. - (position-start_position);
 			  float wc = -velocity;
 
+		      if (fabs(qb+M_PI/4.)<.2) {
+		    	  angle_filtered = .996*angle_filtered + .004*qb;
+		      }
+
 			  if (1==system_task && fabs(qc-M_PI/2.)>3.14/4.) system_task = 9;
 
+#if TORQUE_CONTROL
 			  float K[] = {4.800283, 0.502054, -0.316228, 0.123239};
 			  float k = 1.62;
-
-		      float torque = (K[0]*(qb + .725 /* M_PI/4. */) + K[1]*wb + K[2]*(qc - M_PI/2.) + K[3]*wc);
+		      float torque = -(K[0]*(qb + .73 /* M_PI/4. */) + K[1]*wb + K[2]*(qc - M_PI/2.) + K[3]*wc);
 		      goal_current = torque / k;
-		      if (goal_current >  3) goal_current =  3;
-		      if (goal_current < -3) goal_current = -3;
+
+		      const float frictionA = 0.07;//0.075;
+		      const float frictionB = 0;//-0.01;//-0.02;
+		      if (fabs(wc)<0.02) {
+		    	  goal_current += goal_current > 0 ? frictionA : frictionB;
+		      } else {
+		    	  goal_current += wc > 0 ? frictionA : frictionB;
+		      }
+
+
+		      if (goal_current >  4) goal_current =  4;
+		      if (goal_current < -4) goal_current = -4;
 		      if (fabs(qb+M_PI/4.)>.2) goal_current = 0;
+			  char msg[255] = {0};
+			  sprintf(msg,"%3.6f, %3.6f, %3.6f, %3.6f, %3.6f, %3.6f, %3.6f,                %d, %lu", (float)(time-time_start)*1e-6, goal_current, current, qb, wb, qc, wc, system_task, dynamixel_comm_err_count);
+#else
+			  float K[] = {31.907894, 4.302598, -1.000000};
+		      goal_velocity = -(K[0]*(qb - angle_filtered) + K[1]*wb + K[2]*(qc - M_PI/2.));
+		      if (goal_velocity >  4) goal_velocity =  4;
+		      if (goal_velocity < -4) goal_velocity = -4;
+		      if (fabs(qb+M_PI/4.)>.2) goal_velocity = 0;
 
 			  char msg[255] = {0};
-			  sprintf(msg,"%3.6f, %3.6f, %3.6f, %3.6f, %3.6f, %3.6f,                %d, %lu", (float)(time-time_start)*1e-6, current, qb, wb, qc, wc, system_task, dynamixel_comm_err_count);
+			  sprintf(msg,"%3.6f, %3.6f, %3.6f, %3.6f, %3.6f, %3.6f, %3.6f,                %d, %lu", (float)(time-time_start)*1e-6, angle_filtered, current, qb, wb, qc, wc, system_task, dynamixel_comm_err_count);
+#endif
 			  udp_client_send(msg);
 		  }
 	  }
@@ -317,6 +383,41 @@ void SystemClock_Config(void)
 
   /* SysTick_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+}
+
+/* TIM13 init function */
+static void MX_TIM13_Init(void)
+{
+
+  TIM_OC_InitTypeDef sConfigOC;
+
+  htim13.Instance = TIM13;
+  htim13.Init.Prescaler = 1080-1;
+  htim13.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim13.Init.Period = 2000-1;
+  htim13.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim13.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim13) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  if (HAL_TIM_PWM_Init(&htim13) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim13, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  HAL_TIM_MspPostInit(&htim13);
+
 }
 
 /* UART5 init function */
