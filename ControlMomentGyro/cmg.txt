@@ -12,21 +12,73 @@ T:transpose(wdn).matrix([Id,0,0],[0,Jd,0],[0,0,Id]).wdn/2 + transpose(wcn).matri
 P: m*g*l*cos(qb(t)+%pi/4);
 
 L:trigsimp(T-P);
-#,qa(t)=0,diff(qa(t),t)=0;
 
-E1:subst(diff(qd(t),t,2)=0,trigsimp(diff(diff(L, diff(qa(t),t)), t)));
-E2:subst(diff(qd(t),t,2)=0,trigsimp(diff(diff(L, diff(qb(t),t)), t)));
-E3:subst(diff(qd(t),t,2)=0,trigsimp(diff(diff(L, diff(qc(t),t)), t)));
-E4:trigsimp(diff(diff(L, diff(qd(t),t)), t));
+============================================================================================
+кубик на поворотной платформе
+
+E1:subst(diff(qd(t),t,2)=0,trigsimp(diff(diff(L, diff(qa(t),t)), t) - diff(L, qa(t))));
+E2:subst(diff(qd(t),t,2)=0,trigsimp(diff(diff(L, diff(qb(t),t)), t) - diff(L, qb(t))));
+E3:subst(diff(qd(t),t,2)=0,trigsimp(diff(diff(L, diff(qc(t),t)), t) - diff(L, qc(t))));
+
 
 M:jacobian([E1, E2, E3], [diff(qa(t),t,2), diff(qb(t),t,2), diff(qc(t),t,2)]);
 
-H:radcan(transpose([E1, E2, E3]) - M.transpose([diff(qa(t),t,2), diff(qb(t),t,2), diff(qc(t),t,2)]));
+h:radcan(transpose([E1, E2, E3]) - M.transpose([diff(qa(t),t,2), diff(qb(t),t,2), diff(qc(t),t,2)]));
 
-C:radcan(jacobian(transpose(H)[1], [diff(qa(t),t), diff(qb(t),t), diff(qc(t),t)])/2);
-G:H - C.transpose([diff(qa(t),t), diff(qb(t),t), diff(qc(t),t)]);
+C:radcan(jacobian(transpose(h)[1], [diff(qa(t),t), diff(qb(t),t), diff(qc(t),t)])/2);
+G:h - C.transpose([diff(qa(t),t), diff(qb(t),t), diff(qc(t),t)]);
+
 
 radcan(M.transpose([diff(qa(t),t,2), diff(qb(t),t,2), diff(qc(t),t,2)]) + C.transpose([diff(qa(t),t), diff(qb(t),t), diff(qc(t),t)]) + G - transpose([E1,E2,E3]));
 
+Tau:transpose([0,0,tau(t)]);
+dQ : transpose([diff(qa(t),t), diff(qb(t),t), diff(qc(t),t)]);
+ddQ:radcan(radcan(trigsimp(invert(M))).(radcan(Tau - C.dQ - G)));
 
+f:[dQ[1][1], ddQ[1][1], dQ[2][1], ddQ[2][1], dQ[3][1], ddQ[3][1]];
+f:subst([dQ[1][1]=x2(t), dQ[2][1]=x4(t), dQ[3][1]=x6(t)], f);
+f:radcan(trigsimp(subst([qa(t)=x1(t), qb(t)=x3(t)-%pi/4, qc(t)=x5(t)+%pi/2], f)));
+
+A:jacobian(f, [x1(t), x2(t), x3(t), x4(t), x5(t), x6(t)]);
+A:radcan(subst([x1(t)=0, x2(t)=0, x3(t)=0, x4(t)=0, x5(t)=0, x6(t)=0, tau(t)=0], A));
+
+B:jacobian(f, [tau(t)]);
+B:radcan(subst([x1(t)=0, x2(t)=0, x3(t)=0, x4(t)=0, x5(t)=0, x6(t)=0, tau(t)=0], B));
+
+Co:diag_matrix(0,0,0,0,0,0);
+Co[1]:transpose(B)[1];
+Co[2]:transpose(A.B)[1];
+Co[3]:transpose(A.A.B)[1];
+Co[4]:transpose(A.A.A.B)[1];
+Co[5]:transpose(A.A.A.A.B)[1];
+Co[6]:transpose(A.A.A.A.A.B)[1];
+Co:radcan(transpose(Co));
+rank(Co);
+
+
+=====================================================================================
+кубик без поворотной платформы
+
+L:subst([qa(t)=0,diff(qa(t),t)=0], L);
+E2:subst(diff(qd(t),t,2)=0,trigsimp(diff(diff(L, diff(qb(t),t)), t) - diff(L, qb(t))));
+E3:subst(diff(qd(t),t,2)=0,trigsimp(diff(diff(L, diff(qc(t),t)), t) - diff(L, qc(t))));
+M:jacobian([E2, E3], [diff(qb(t),t,2), diff(qc(t),t,2)]);
+h:radcan(transpose([E2, E3]) - M.transpose([diff(qb(t),t,2), diff(qc(t),t,2)]));
+C:radcan(jacobian(transpose(h)[1], [diff(qb(t),t), diff(qc(t),t)])/2);
+G:h - C.transpose([diff(qb(t),t), diff(qc(t),t)]);
+Tau:transpose([0,tau(t)]);
+dQ : transpose([diff(qb(t),t), diff(qc(t),t)]);
+ddQ:radcan(radcan(trigsimp(invert(M))).(radcan(Tau - C.dQ - G)));
+
+f:[dQ[1][1], ddQ[1][1], dQ[2][1], ddQ[2][1]];
+f:subst([dQ[1][1]=x2(t), dQ[2][1]=x4(t)], f);
+f:radcan(trigsimp(subst([qb(t)=x1(t)-%pi/4, qc(t)=x3(t)+%pi/2], f)));
+
+A:jacobian(f, [x1(t), x2(t), x3(t), x4(t)]);
+A:radcan(subst([x1(t)=0, x2(t)=0, x3(t)=0, x4(t)=0, tau(t)=0], A));
+
+B:jacobian(f, [tau(t)]);
+B:radcan(subst([x1(t)=0, x2(t)=0, x3(t)=0, x4(t)=0, tau(t)=0], B));
+
+=====================================================================================
 
