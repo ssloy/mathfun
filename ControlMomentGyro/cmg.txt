@@ -26,7 +26,29 @@ M:jacobian([E1, E2, E3], [diff(qa(t),t,2), diff(qb(t),t,2), diff(qc(t),t,2)]);
 h:radcan(transpose([E1, E2, E3]) - M.transpose([diff(qa(t),t,2), diff(qb(t),t,2), diff(qc(t),t,2)]));
 
 C:radcan(jacobian(transpose(h)[1], [diff(qa(t),t), diff(qb(t),t), diff(qc(t),t)])/2);
-G:h - C.transpose([diff(qa(t),t), diff(qb(t),t), diff(qc(t),t)]);
+G:radcan(h - C.transpose([diff(qa(t),t), diff(qb(t),t), diff(qc(t),t)]));
+#stringout("gnaG.txt", subst([diff(qa(t),t)=wa, diff(qb(t),t)=wb, diff(qc(t),t)=wc, diff(qd(t),t)=wd, qa(t)=qa, qb(t)=qb, qc(t)=qc], G));
+
+M:subst([qb(t)=qb, qc(t)=qc], M);
+C:subst([diff(qa(t),t)=wa, diff(qb(t),t)=wb, diff(qc(t),t)=wc, diff(qd(t),t)=wd, qa(t)=qa, qb(t)=qb, qc(t)=qc], C);
+G:subst([diff(qa(t),t)=wa, diff(qb(t),t)=wb, diff(qc(t),t)=wc, diff(qd(t),t)=wd, qa(t)=qa, qb(t)=qb, qc(t)=qc], G);
+
+Tau:transpose([0,0,tau]);
+dQ : transpose([wa, wb, wc]);
+ddQ:radcan(radcan(trigsimp(invert(M))).(radcan(Tau - C.dQ - G)));
+
+f:[dQ[1][1], ddQ[1][1], dQ[2][1], ddQ[2][1], dQ[3][1], ddQ[3][1]];
+f:subst([dQ[1][1]=x2, dQ[2][1]=x4, dQ[3][1]=x6], f);
+f:subst([qa=x1, qb=x3-%pi/4, qc=x5+%pi/3], f);
+f:radcan(trigsimp(f));
+f:subst([g = 9.81, m = 2.62, Ic = 0.001, Jc = 0.000260, Kc = 0.000987, Id = 0.000564, Jd = 0.0011, Kd = 0.000564, Ib = 0.01045, Jb = 0.01312, Kb = 0.01358, Ia = 0.01045, Ja = 0.01312, Ka = 0.01358, l = .1344, wd=223], f);
+
+
+A:jacobian(f, [x1, x2, x3, x4, x5, x6]);
+A:radcan(subst([x1=0, x2=0, x3=0, x4=0, x5=0, x6=0, tau=0], A));
+
+B:jacobian(f, [tau]);
+B:radcan(subst([x1=0, x2=0, x3=0, x4=0, x5=0, x6=0, tau=0], B));
 
 
 radcan(M.transpose([diff(qa(t),t,2), diff(qb(t),t,2), diff(qc(t),t,2)]) + C.transpose([diff(qa(t),t), diff(qb(t),t), diff(qc(t),t)]) + G - transpose([E1,E2,E3]));
@@ -37,7 +59,8 @@ ddQ:radcan(radcan(trigsimp(invert(M))).(radcan(Tau - C.dQ - G)));
 
 f:[dQ[1][1], ddQ[1][1], dQ[2][1], ddQ[2][1], dQ[3][1], ddQ[3][1]];
 f:subst([dQ[1][1]=x2(t), dQ[2][1]=x4(t), dQ[3][1]=x6(t)], f);
-f:radcan(trigsimp(subst([qa(t)=x1(t), qb(t)=x3(t)-%pi/4, qc(t)=x5(t)+%pi/2], f)));
+f:radcan(trigsimp(subst([qa(t)=x1(t), qb(t)=x3(t)-%pi/4, qc(t)=x5(t)+%pi/3], f)));
+f:subst([g = 9.81, m = 2.62, Ic = 0.001, Jc = 0.000260, Kc = 0.000987, Id = 0.000564, Jd = 0.0011, Kd = 0.000564, Ib = 0.01045, Jb = 0.01312, Kb = 0.01358, Ia = 0.01045, Ja = 0.01312, Ka = 0.01358, l = .1344, diff(qd(t),t)=223], f);
 
 A:jacobian(f, [x1(t), x2(t), x3(t), x4(t), x5(t), x6(t)]);
 A:radcan(subst([x1(t)=0, x2(t)=0, x3(t)=0, x4(t)=0, x5(t)=0, x6(t)=0, tau(t)=0], A));
@@ -46,14 +69,16 @@ B:jacobian(f, [tau(t)]);
 B:radcan(subst([x1(t)=0, x2(t)=0, x3(t)=0, x4(t)=0, x5(t)=0, x6(t)=0, tau(t)=0], B));
 
 Co:diag_matrix(0,0,0,0,0,0);
-Co[1]:transpose(B)[1];
-Co[2]:transpose(A.B)[1];
-Co[3]:transpose(A.A.B)[1];
-Co[4]:transpose(A.A.A.B)[1];
-Co[5]:transpose(A.A.A.A.B)[1];
-Co[6]:transpose(A.A.A.A.A.B)[1];
+Co[1]:transpose(B2)[1];
+Co[2]:transpose(radcan(A2.Co[1]))[1];
+Co[3]:transpose(radcan(A2.Co[2]))[1];
+Co[4]:transpose(radcan(A2.Co[3]))[1];
+Co[5]:transpose(radcan(A2.Co[4]))[1];
+Co[6]:transpose(radcan(A2.Co[5]))[1];
 Co:radcan(transpose(Co));
 rank(Co);
+
+
 
 
 =====================================================================================
