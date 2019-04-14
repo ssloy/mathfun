@@ -1,0 +1,41 @@
+Rna:matrix([cos(qa(t)),sin(qa(t)),0],[-sin(qa(t)),cos(qa(t)),0],[0,0,1]);
+Rab:matrix([cos(qb(t)),0,-sin(qb(t))],[0,1,0],[sin(qb(t)),0,cos(qb(t))]);
+Rbc:matrix([1,0,0],[0,cos(qc(t)),sin(qc(t))],[0,-sin(qc(t)),cos(qc(t))]);
+Rcd:matrix([cos(qd(t)),0,-sin(qd(t))],[0,1,0],[sin(qd(t)),0,cos(qd(t))]);
+
+wdn:matrix([0],[diff(qd(t),t)],[0]) + Rcd.matrix([diff(qc(t),t)],[0],[0]) + Rcd.Rbc.matrix([0],[diff(qb(t),t)],[0]) + Rcd.Rbc.Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
+wcn:                                      matrix([diff(qc(t),t)],[0],[0]) +     Rbc.matrix([0],[diff(qb(t),t)],[0]) +     Rbc.Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
+wbn:                                                                                matrix([0],[diff(qb(t),t)],[0]) +         Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
+wan:                                                                                                                              Rna.matrix([0],[0],[diff(qa(t),t)]);
+
+T:transpose(wdn).matrix([Id,0,0],[0,Jd,0],[0,0,Id]).wdn/2 + 
+  transpose(wcn).matrix([Ic,0,0],[0,Jc,0],[0,0,Kc]).wcn/2 + 
+  transpose(wbn).matrix([Ib,0,0],[0,Jb+m*l^2,0],[0,0,Kb]).wbn/2 +
+  transpose(wan).matrix([Ia,0,0],[0,Ja,0],[0,0,Ka]).wan/2$
+P:m*g*l*cos(qb(t)+%pi/4)$
+L:trigsimp(T-P);
+
+E1:subst([diff(qa(t),t,2)=0, diff(qa(t), t)=0, qa(t)=0, diff(qc(t),t,2)=0, diff(qc(t), t)=0, qc(t)=0],trigsimp(diff(diff(L, diff(qb(t),t)), t) - diff(L, qb(t))))$
+E2:subst([diff(qa(t),t,2)=0, diff(qa(t), t)=0, qa(t)=0, diff(qc(t),t,2)=0, diff(qc(t), t)=0, qc(t)=0],trigsimp(diff(diff(L, diff(qd(t),t)), t) - diff(L, qd(t))))$
+
+EQs:subst([diff(qb(t),t,2)=dwb, diff(qd(t),t,2)=dwd, diff(qb(t),t)=wb, diff(qd(t),t)=wd, qb(t)=qb, qd(t)=qd], [E1, E2])$
+
+dQ : transpose([wb, wd])$
+M:jacobian(EQs, [dwb, dwd]);
+h:radcan(transpose(EQs) - M.transpose([dwb, dwd]))$
+C:radcan(jacobian(transpose(h)[1], transpose(dQ)[1]))/2;
+G:radcan(h - C.dQ);
+
+Tau:transpose([0,taud])$
+ddQ:radcan(radcan(trigsimp(invert(M))).(radcan(Tau - C.dQ - G)))$
+
+f:[dQ[1][1], ddQ[1][1], ddQ[2][1]]$
+f:subst([dQ[1][1]=x2, dQ[2][1]=x3], f)$
+f:subst([qb=x1-%pi/4], f)$
+f:radcan(trigsimp(f));
+
+A:jacobian(f, [x1, x2, x3])$
+A:radcan(subst([x1=0, x2=0, x3=0, taud=0], A));
+
+B:jacobian(f, [taud])$
+B:radcan(subst([x1=0, x2=0, x3=0, taud=0], B));

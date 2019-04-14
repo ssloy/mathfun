@@ -1,0 +1,63 @@
+Rna:matrix([cos(qa(t)),sin(qa(t)),0],[-sin(qa(t)),cos(qa(t)),0],[0,0,1]);
+Rab:matrix([cos(qb(t)),0,-sin(qb(t))],[0,1,0],[sin(qb(t)),0,cos(qb(t))]);
+Rbc1:matrix([1,0,0],[0,cos(qc1(t)),sin(qc1(t))],[0,-sin(qc1(t)),cos(qc1(t))]);
+Rcd1:matrix([cos(qd1(t)),0,-sin(qd1(t))],[0,1,0],[sin(qd1(t)),0,cos(qd1(t))]);
+Rbc2:matrix([1,0,0],[0,cos(qc2(t)),sin(qc2(t))],[0,-sin(qc2(t)),cos(qc2(t))]);
+Rcd2:matrix([cos(qd2(t)),0,-sin(qd2(t))],[0,1,0],[sin(qd2(t)),0,cos(qd2(t))]);
+
+wdn1:matrix([0],[diff(qd1(t),t)],[0]) + Rcd1.matrix([diff(qc1(t),t)],[0],[0]) + Rcd1.Rbc1.matrix([0],[diff(qb(t),t)],[0]) + Rcd1.Rbc1.Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
+wcn1:                                        matrix([diff(qc1(t),t)],[0],[0]) +      Rbc1.matrix([0],[diff(qb(t),t)],[0]) +      Rbc1.Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
+wdn2:matrix([0],[diff(qd2(t),t)],[0]) + Rcd2.matrix([diff(qc2(t),t)],[0],[0]) + Rcd2.Rbc2.matrix([0],[diff(qb(t),t)],[0]) + Rcd2.Rbc2.Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
+wcn2:                                        matrix([diff(qc2(t),t)],[0],[0]) +      Rbc2.matrix([0],[diff(qb(t),t)],[0]) +      Rbc2.Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
+wbn:                                                                                      matrix([0],[diff(qb(t),t)],[0]) +           Rab.Rna.matrix([0],[0],[diff(qa(t),t)]);
+wan:                                                                                                                                      Rna.matrix([0],[0],[diff(qa(t),t)]);
+
+T:transpose(wdn1).matrix([Id,0,0],[0,Jd,0],[0,0,Id]).wdn1/2 + 
+  transpose(wdn2).matrix([Id,0,0],[0,Jd,0],[0,0,Id]).wdn2/2 + 
+  transpose(wcn1).matrix([Ic,0,0],[0,Jc,0],[0,0,Kc]).wcn1/2 + 
+  transpose(wcn2).matrix([Ic,0,0],[0,Jc,0],[0,0,Kc]).wcn2/2 + 
+  transpose(wbn).matrix([Ib,0,0],[0,Jb+m*l^2,0],[0,0,Kb]).wbn/2 + 
+  transpose(wan).matrix([Ia,0,0],[0,Ja,0],[0,0,Ka]).wan/2$
+P:m*g*l*cos(qb(t)+%pi/4)$
+L:trigsimp(T-P);
+
+E1:subst([diff(qa(t),t,2)=0,diff(qa(t),t)=0,qa(t)=0,diff(qd1(t),t,2)=0,diff(qd2(t),t,2)=0],trigsimp(diff(diff(L, diff(qb(t),t)),  t) - diff(L, qb(t))))$
+EQs:subst([diff(qb(t),t,2)=dwb,diff(qc1(t),t,2)=dwc1,diff(qc2(t),t,2)=dwc2,
+diff(qb(t),t)=wb,diff(qc1(t),t)=wc1,diff(qc2(t),t)=wc2,diff(qd1(t),t)=wd1,diff(qd2(t),t)=wd2,qb(t)=qb,qc1(t)=qc1,qc2(t)=qc2], [E1])$
+
+dQ : transpose([wb])$
+M:jacobian(EQs, [dwb]);
+h:radcan(transpose(EQs) - M.transpose([dwb]))$
+C:radcan(jacobian(transpose(h)[1], transpose(dQ)[1]))/2;
+G:radcan(h - C.dQ);
+
+radcan(trigsimp(M.transpose([dwb]) + C.dQ + G - transpose(EQs)));
+
+Tau:transpose([0])$
+ddQ:radcan(((Tau - C.dQ - G)[1][1])/M[1][1])$
+
+f:[dQ[1][1], ddQ, wc1, wc2]$
+f:subst([dQ[1][1]=x2], f)$
+f:subst([qb=x1-%pi/4, qc1=x3+%pi/2, qc2=x4+%pi/2], f)$
+f:radcan(trigsimp(f));
+
+A:jacobian(f, [x1, x2, x3, x4])$
+A:radcan(subst([x1=0, x2=0, x3=0, x4=0, wc1=0, wc2=0], A));
+
+B:jacobian(f, [wc1, wc2])$
+B:radcan(subst([x1=0, x2=0, x3=0, x4=0, wc1=0, wc2=0], B));
+
+Co:matrix([0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]);
+Co:transpose(Co)$
+Co[1]:transpose(B)[1]$
+Co[2]:transpose(B)[2]$
+Co[3]:transpose(radcan(A.Co[1]))[1]$
+Co[4]:transpose(radcan(A.Co[2]))[1]$
+Co[5]:transpose(radcan(A.Co[3]))[1]$
+Co[6]:transpose(radcan(A.Co[4]))[1]$
+Co[7]:transpose(radcan(A.Co[5]))[1]$
+Co[8]:transpose(radcan(A.Co[6]))[1]$
+Co:(transpose(Co))$
+
+rank(Co);
+

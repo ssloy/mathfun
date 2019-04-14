@@ -46,7 +46,8 @@ volatile uint32_t rx_timeout = 0;
 
 volatile static UART_HandleTypeDef* huart = NULL;
 volatile static uint32_t uart_baudrate = 1000000L;
-volatile uint32_t dynamixel_comm_err_count = 0;
+volatile uint32_t dynamixel_comm_err_count1 = 0;
+volatile uint32_t dynamixel_comm_err_count2 = 0;
 
 void dynamixel_bind_uart(const UART_HandleTypeDef* _huart, uint32_t baudrate) {
 	huart = (UART_HandleTypeDef*)_huart;
